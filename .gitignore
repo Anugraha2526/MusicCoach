@@ -1,0 +1,35 @@
+# Django / Backend
+music_coach_backend/__pycache__/
+music_coach_backend/*.pyc
+music_coach_backend/*.pyo
+music_coach_backend/venv/
+music_coach_backend/*.log
+music_coach_backend/staticfiles/
+music_coach_backend/media/
+music_coach_backend/*.sqlite3
+music_coach_backend/.env
+music_coach_backend/settings_local.py
+music_coach_backend/*.pot
+music_coach_backend/*.mo
+music_coach_backend/*.coverage
+music_coach_backend/.coverage.*
+music_coach_backend/*.egg-info/
+
+# Flutter / Frontend
+music_coach_frontend/build/
+music_coach_frontend/.dart_tool/
+music_coach_frontend/.packages
+music_coach_frontend/pubspec.lock
+music_coach_frontend/.flutter-plugins
+music_coach_frontend/.flutter-plugins-dependencies
+music_coach_frontend/.idea/
+music_coach_frontend/*.iml
+music_coach_frontend/*.ipr
+music_coach_frontend/*.iws
+
+# IDEs
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
