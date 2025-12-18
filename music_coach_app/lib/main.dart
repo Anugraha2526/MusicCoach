@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 // import 'screens/piano_lesson_play/piano_lesson_play.dart'; 
 import 'screens/login_screen.dart';
+import 'screens/home_screen.dart';
 
 void main() {
   runApp(const MyApp());
@@ -21,7 +22,11 @@ class MyApp extends StatelessWidget {
       // home: const PianoLessonPlay(
       //   lessonId: 1,
       // ),
-      home: const LoginScreen(),
+      home: HomeScreen(),
+       routes: {
+        '/login': (context) => LoginScreen(),
+        // '/signup': (context) => SignUpScreen(),
+      },
     );
   }
 }
