@@ -25,7 +25,7 @@ SECRET_KEY = "django-insecure-@$5!93(3cr41o1kmt^wh4apnj-yi%$f9r38*=ms6%j!utayhya
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['192.168.1.73', '192.168.1.72', 'localhost', '127.0.0.1']
 
 
 # Application definition
@@ -59,10 +59,12 @@ MIDDLEWARE = [
 ]
 
 # CORS settings
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:5173",  
-    "http://127.0.0.1:5173",
-]
+# CORS_ALLOWED_ORIGINS = [
+#     "http://localhost:5173",  
+#     "http://127.0.0.1:5173",
+# ]
+CORS_ALLOW_ALL_ORIGINS = True
+
 
 ROOT_URLCONF = "musiccoach_api.urls"
 
@@ -156,6 +158,11 @@ SIMPLE_JWT = {
 # Custom User Model
 AUTH_USER_MODEL = 'accounts.CustomUser'
 
+# Custom Authentication Backend
+AUTHENTICATION_BACKENDS = [
+    'apps.accounts.backends.EmailBackend',
+    'django.contrib.auth.backends.ModelBackend',
+]
 
 # EMAIL SETTINGS (NEW)
 EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"

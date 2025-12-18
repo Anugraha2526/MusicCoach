@@ -19,6 +19,10 @@ class RegisterSerializer(serializers.ModelSerializer):
         )
         return user
 
+# Login Serializer
+class LoginSerializer(serializers.Serializer):
+    email = serializers.EmailField(required=True)
+    password = serializers.CharField(write_only=True, required=True)
 
 # Change Password Serializer
 class ChangePasswordSerializer(serializers.Serializer):
