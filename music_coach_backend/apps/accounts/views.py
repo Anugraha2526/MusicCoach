@@ -42,9 +42,11 @@ class LoginView(APIView):
     permission_classes = [permissions.AllowAny]
 
     def post(self, request):
-        username = request.data.get('username')
+        print("Login request data:", request.data)
+        
+        email = request.data.get('email')
         password = request.data.get('password')
-        user = authenticate(username=username, password=password)
+        user = authenticate(email=email, password=password)
         if user:
             token = get_tokens_for_user(user)
             return Response({"message": "Login successful", "token": token})
