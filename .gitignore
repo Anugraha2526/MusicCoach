@@ -1,35 +1,74 @@
+# ========================================
 # Django / Backend
-music_coach_backend/__pycache__/
-music_coach_backend/*.pyc
-music_coach_backend/*.pyo
+# ========================================
+
+# Byte-compiled / optimized / cache files
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+
+# Virtual environment
 music_coach_backend/venv/
+.venv/
+
+# Logs and database
 music_coach_backend/*.log
+music_coach_backend/*.sqlite3
+
+# Static and media
 music_coach_backend/staticfiles/
 music_coach_backend/media/
-music_coach_backend/*.sqlite3
+
+# Local settings and environment variables
 music_coach_backend/.env
 music_coach_backend/settings_local.py
+
+# Translation files
 music_coach_backend/*.pot
 music_coach_backend/*.mo
+
+# Coverage reports
 music_coach_backend/*.coverage
 music_coach_backend/.coverage.*
+
+# Packaging / distribution
 music_coach_backend/*.egg-info/
 
-# Flutter / Frontend
-music_coach_frontend/build/
-music_coach_frontend/.dart_tool/
-music_coach_frontend/.packages
-music_coach_frontend/pubspec.lock
-music_coach_frontend/.flutter-plugins
-music_coach_frontend/.flutter-plugins-dependencies
-music_coach_frontend/.idea/
-music_coach_frontend/*.iml
-music_coach_frontend/*.ipr
-music_coach_frontend/*.iws
 
+# ========================================
+# Flutter / Frontend
+# ========================================
+
+# Build outputs
+music_coach_app/build/
+music_coach_app/.dart_tool/
+music_coach_app/.packages
+music_coach_app/pubspec.lock
+
+# Plugins
+music_coach_app/.flutter-plugins
+music_coach_app/.flutter-plugins-dependencies
+music_coach_app/linux/flutter/generated_*.cc
+music_coach_app/linux/flutter/generated_*.h
+music_coach_app/linux/flutter/generated_plugins.cmake
+music_coach_app/windows/flutter/generated_*.cc
+music_coach_app/windows/flutter/generated_plugins.cmake
+music_coach_app/macos/Flutter/GeneratedPluginRegistrant.swift
+music_coach_app/macos/Flutter/GeneratedPluginRegistrant.h
+
+# IDE files
+music_coach_app/.idea/
+music_coach_app/*.iml
+music_coach_app/*.ipr
+music_coach_app/*.iws
+
+# ========================================
 # IDEs
+# ========================================
 .vscode/
 
-# OS
+# ========================================
+# OS Files
+# ========================================
 .DS_Store
 Thumbs.db
