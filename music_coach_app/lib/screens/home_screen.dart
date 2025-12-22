@@ -1,3 +1,4 @@
+// home_screen.dart
 import 'package:flutter/material.dart';
 import 'lessons_screen.dart';
 import 'profile_screen.dart';
@@ -12,7 +13,7 @@ class _HomeScreenState extends State<HomeScreen> {
   int _currentIndex = 0;
 
   final List<Widget> _screens = [
-    Container(),         // Home (blank for now)
+    Container(),         // Home placeholder
     LessonsScreen(),     // Lessons placeholder
     ProfileScreen(),     // Profile placeholder
   ];

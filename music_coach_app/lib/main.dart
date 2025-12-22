@@ -1,14 +1,22 @@
 import 'package:flutter/material.dart';
-// import 'screens/piano_lesson_play/piano_lesson_play.dart'; 
+import 'package:music_coach/services/auth_service.dart';
 import 'screens/login_screen.dart';
+import 'screens/register_screen.dart';
 import 'screens/home_screen.dart';
 
-void main() {
-  runApp(const MyApp());
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Check if user is logged in for auto-login
+  bool loggedIn = await AuthService.isLoggedIn();
+
+  runApp(MyApp(startOnHome: loggedIn));
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+  final bool startOnHome;
+
+  const MyApp({super.key, this.startOnHome = false}); // default false
 
   @override
   Widget build(BuildContext context) {
@@ -17,15 +25,13 @@ class MyApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
-        useMaterial3: true, // optional, for modern Material3 style
+        useMaterial3: true,
       ),
-      // home: const PianoLessonPlay(
-      //   lessonId: 1,
-      // ),
-      home: HomeScreen(),
-       routes: {
+      initialRoute: startOnHome ? '/home' : '/login',
+      routes: {
         '/login': (context) => LoginScreen(),
-        // '/signup': (context) => SignUpScreen(),
+        '/register': (context) => RegisterScreen(),
+        '/home': (context) => HomeScreen(),
       },
     );
   }
