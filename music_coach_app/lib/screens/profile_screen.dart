@@ -25,7 +25,7 @@ class ProfileScreen extends StatelessWidget {
             ElevatedButton(
               onPressed: () {
                 // Navigate to Sign Up screen
-                Navigator.pushNamed(context, '/signup');
+                Navigator.pushNamed(context, '/register');
               },
               child: Text('Sign Up'),
             ),
