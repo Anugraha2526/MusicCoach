@@ -167,3 +167,11 @@ AUTHENTICATION_BACKENDS = [
 # EMAIL SETTINGS (NEW)
 EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 FRONTEND_URL = "http://localhost:5173" 
+
+# CACHE CONFIG (OTP)
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+        "LOCATION": "musiccoach-otp-cache",
+    }
+}
