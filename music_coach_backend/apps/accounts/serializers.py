@@ -41,8 +41,8 @@ class ProfileSerializer(serializers.ModelSerializer):
 class PasswordResetRequestSerializer(serializers.Serializer):
     email = serializers.EmailField(required=True)
 
-# Password Reset Confirm Serializer
+# Password Reset Confirm Serializer (OTP-based)
 class PasswordResetConfirmSerializer(serializers.Serializer):
     email = serializers.EmailField(required=True)
-    token = serializers.CharField(required=True)
-    new_password = serializers.CharField(required=True)
+    otp = serializers.CharField(max_length=6, required=True)  # OTP sent to email
+    new_password = serializers.CharField(required=True, min_length=8)
