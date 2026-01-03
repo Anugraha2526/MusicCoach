@@ -1,14 +1,17 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import '../config/api_config.dart';
 
-class AuthService {
-  static const String baseUrl = "http://192.168.1.73:8000";
+class AuthService { 
+  static const String _onboardingKey = 'onboarding_completed';
+  static const String _selectedInstrumentKey = 'selected_instrument';
+  static const String _showLessonsFirstKey = 'show_lessons_first';
 
   // -------------------- Registration --------------------
   static Future<bool> register(String email, String password, String username) async {
     final response = await http.post(
-      Uri.parse('$baseUrl/api/accounts/register/'),
+      Uri.parse(ApiConfig.register),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({'email': email, 'password': password, 'username': username}),
     );
@@ -26,7 +29,7 @@ class AuthService {
   // -------------------- Login --------------------
   static Future<bool> login(String email, String password) async {
     final response = await http.post(
-      Uri.parse('$baseUrl/api/accounts/login/'),
+      Uri.parse(ApiConfig.login),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({'email': email, 'password': password}),
     );
@@ -52,6 +55,54 @@ class AuthService {
   static Future<void> logout() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('access_token');
+    await prefs.remove(_onboardingKey); // Reset onboarding on logout
+  }
+
+  // Onboarding: check if completed
+  static Future<bool> hasCompletedOnboarding() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_onboardingKey) ?? false;
+  }
+
+  // Onboarding: mark as completed
+  static Future<void> completeOnboarding() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_onboardingKey, true);
+  }
+
+  // Onboarding: reset (for testing)
+  static Future<void> resetOnboarding() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_onboardingKey);
+  }
+
+  // Selected Instrument: save
+  static Future<void> saveSelectedInstrument(String instrument) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_selectedInstrumentKey, instrument);
+  }
+
+  // Selected Instrument: get
+  static Future<String?> getSelectedInstrument() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_selectedInstrumentKey);
+  }
+
+  // Show Lessons First: set (when coming from onboarding)
+  static Future<void> setShowLessonsFirst(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_showLessonsFirstKey, value);
+  }
+
+  // Show Lessons First: get and clear
+  static Future<bool> getAndClearShowLessonsFirst() async {
+    final prefs = await SharedPreferences.getInstance();
+    final value = prefs.getBool(_showLessonsFirstKey) ?? false;
+    if (value) {
+      // Clear the flag after reading it
+      await prefs.remove(_showLessonsFirstKey);
+    }
+    return value;
   }
 
   // -------------------- Get stored token --------------------
@@ -66,7 +117,7 @@ class AuthService {
     if (token == null) return null;
 
     final response = await http.get(
-      Uri.parse('$baseUrl/api/accounts/profile/'),
+      Uri.parse(ApiConfig.profile),
       headers: {'Authorization': 'Bearer $token'},
     );
 
@@ -79,7 +130,7 @@ class AuthService {
     if (token == null) return false;
 
     final response = await http.put(
-      Uri.parse('$baseUrl/api/accounts/profile/'),
+      Uri.parse(ApiConfig.profile),
       headers: {
         'Content-Type': 'application/json',
         'Authorization': 'Bearer $token',
@@ -96,7 +147,7 @@ class AuthService {
     if (token == null) return false;
 
     final response = await http.post(
-      Uri.parse('$baseUrl/api/accounts/change-password/'),
+      Uri.parse(ApiConfig.changePassword),
       headers: {
         'Content-Type': 'application/json',
         'Authorization': 'Bearer $token',
@@ -110,7 +161,7 @@ class AuthService {
   // -------------------- Password Reset Request (Send OTP) --------------------
   static Future<bool> requestPasswordReset(String email) async {
     final response = await http.post(
-      Uri.parse('$baseUrl/api/accounts/password-reset/'),
+      Uri.parse(ApiConfig.passwordReset),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({'email': email}),
     );
@@ -121,7 +172,7 @@ class AuthService {
   // -------------------- Password Reset Confirm with OTP --------------------
   static Future<bool> resetPasswordWithOtp(String email, String otp, String newPassword) async {
     final response = await http.post(
-      Uri.parse('$baseUrl/api/accounts/password-reset-confirm/'),
+      Uri.parse(ApiConfig.passwordResetConfirm),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({
         'email': email,

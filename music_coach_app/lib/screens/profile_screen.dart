@@ -41,6 +41,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   // -------------------- Update profile --------------------
   void handleUpdateProfile() async {
+    // Safety check - should not happen as button is hidden when not logged in
+    if (!isLoggedIn) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Please login to update profile')),
+      );
+      return;
+    }
+
     setState(() => isUpdating = true);
     bool success = await AuthService.updateProfile(
       usernameController.text.trim(),
@@ -57,13 +65,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  @override
+  void dispose() {
+    usernameController.dispose();
+    emailController.dispose();
+    super.dispose();
+  }
+
   // -------------------- Logout --------------------
   void handleLogout() async {
     await AuthService.logout();
     setState(() {
       isLoggedIn = false;
     });
-    Navigator.pushReplacementNamed(context, '/login');
+    // Navigate to home instead of login, so app remains usable after logout
+    Navigator.pushNamedAndRemoveUntil(context, '/home', (route) => false);
   }
 
   @override

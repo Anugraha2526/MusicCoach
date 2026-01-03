@@ -12,8 +12,35 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
   final confirmPasswordController = TextEditingController();
 
   bool isLoading = false;
+  bool isLoggedIn = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkLoginStatus();
+  }
+
+  void _checkLoginStatus() async {
+    bool loggedIn = await AuthService.isLoggedIn();
+    setState(() {
+      isLoggedIn = loggedIn;
+    });
+    
+    // If not logged in, go back
+    if (!loggedIn) {
+      Navigator.pop(context);
+    }
+  }
 
   void handleChangePassword() async {
+    // Double check authentication
+    if (!isLoggedIn) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Please login to change password')),
+      );
+      return;
+    }
+
     final oldPassword = oldPasswordController.text.trim();
     final newPassword = newPasswordController.text.trim();
     final confirmPassword = confirmPasswordController.text.trim();
@@ -39,14 +66,22 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Password changed successfully')),
       );
-      // Logout after password change
+      // Logout after password change and navigate to home
       await AuthService.logout();
-      Navigator.pushReplacementNamed(context, '/login');
+      Navigator.pushNamedAndRemoveUntil(context, '/home', (route) => false);
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Old password is incorrect or an error occurred')),
       );
     }
+  }
+
+  @override
+  void dispose() {
+    oldPasswordController.dispose();
+    newPasswordController.dispose();
+    confirmPasswordController.dispose();
+    super.dispose();
   }
 
   @override

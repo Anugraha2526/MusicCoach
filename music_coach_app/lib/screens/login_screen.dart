@@ -17,9 +17,18 @@ class _LoginScreenState extends State<LoginScreen> {
     _checkAutoLogin();
   }
 
+  @override
+  void dispose() {
+    emailController.dispose();
+    passwordController.dispose();
+    super.dispose();
+  }
+
   void _checkAutoLogin() async {
     if (await AuthService.isLoggedIn()) {
-      Navigator.pushReplacementNamed(context, '/home');
+      if (mounted) {
+        Navigator.pushReplacementNamed(context, '/home');
+      }
     }
   }
 
@@ -54,8 +63,24 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text('Login')),
+    // Check if we can go back (i.e., not the initial route)
+    final canPop = Navigator.canPop(context);
+    
+    return PopScope(
+      canPop: false, // Always prevent default back behavior
+      onPopInvoked: (didPop) {
+        // If we can go back, navigate to home instead of going back normally
+        // This ensures that after logout, back button goes to home, not profile
+        if (canPop && !didPop) {
+          Navigator.pushNamedAndRemoveUntil(context, '/home', (route) => false);
+        }
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text('Login'),
+          // Automatically shows back button if there's a route to go back to
+          automaticallyImplyLeading: canPop,
+        ),
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -91,6 +116,7 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
           ],
         ),
+      ),
       ),
     );
   }
