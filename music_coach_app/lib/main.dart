@@ -1,25 +1,23 @@
 import 'package:flutter/material.dart';
-import 'package:music_coach/screens/forgot_pass_screen.dart';
-import 'package:music_coach/screens/reset_pass_screen.dart';
 import 'package:music_coach/services/auth_service.dart';
-import 'screens/login_screen.dart';
-import 'screens/register_screen.dart';
-import 'screens/home_screen.dart';
-import 'screens/change_pass_screen.dart';
+import 'package:music_coach/routes/app_routes.dart';
+import 'package:music_coach/routes/app_router.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Check if user is logged in for auto-login
-  bool loggedIn = await AuthService.isLoggedIn();
+  bool onboarded = await AuthService.hasCompletedOnboarding();
 
-  runApp(MyApp(startOnHome: loggedIn));
+  // Determine initial route: onboarding for new users, otherwise main layout
+  String initialRoute = onboarded ? AppRoutes.main : AppRoutes.onboarding;
+
+  runApp(MyApp(initialRoute: initialRoute));
 }
 
 class MyApp extends StatelessWidget {
-  final bool startOnHome;
+  final String initialRoute;
 
-  const MyApp({super.key, this.startOnHome = false}); // default false
+  const MyApp({super.key, required this.initialRoute});
 
   @override
   Widget build(BuildContext context) {
@@ -30,18 +28,8 @@ class MyApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
         useMaterial3: true,
       ),
-      initialRoute: '/home',
-      routes: {
-        '/login': (context) => LoginScreen(),
-        '/register': (context) => RegisterScreen(),
-        '/home': (context) => HomeScreen(),
-        '/change-password': (context) => ChangePasswordScreen(),
-        '/forgot-password': (_) => ForgotPasswordScreen(),
-        '/reset-password': (context) {
-          final args = ModalRoute.of(context)!.settings.arguments as Map<String, String>;
-          return ResetPasswordScreen(email: args['email']!);
-        },
-      },
+      initialRoute: initialRoute,
+      onGenerateRoute: AppRouter.generateRoute,
     );
   }
 }
