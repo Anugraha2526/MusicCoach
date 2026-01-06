@@ -7,11 +7,28 @@ class RealtimePitchGraphScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Realtime Pitch Graph'),
-        automaticallyImplyLeading: false,
+        backgroundColor: const Color(0xFF0A1929),
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: const Text(
+          'Realtime Pitch Graph',
+          style: TextStyle(color: Colors.white),
+        ),
+        centerTitle: true,
       ),
+      backgroundColor: const Color(0xFF0A1929),
       body: const Center(
-        child: Text('Realtime Pitch Graph Placeholder'),
+        child: Text(
+          'Realtime Pitch Graph Placeholder',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 24,
+            fontWeight: FontWeight.w400,
+          ),
+        ),
       ),
     );
   }

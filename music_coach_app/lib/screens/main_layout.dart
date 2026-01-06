@@ -65,9 +65,31 @@ class _MainLayoutState extends State<MainLayout> {
     }
   }
 
+  // Method to switch to a specific lesson screen and show lessons tab
+  void switchToLessonScreen(String instrumentType) {
+    Widget screen;
+    
+    switch (instrumentType.toLowerCase()) {
+      case 'piano':
+        screen = const PianoLessonScreen();
+        break;
+      case 'vocals':
+      case 'vocal':
+        screen = const VocalLessonScreen();
+        break;
+      default:
+        return; // Don't switch for other types
+    }
+    
+    setState(() {
+      _lessonsScreen = screen;
+      _currentIndex = 1; // Switch to lessons tab
+    });
+  }
+
   List<Widget> get _screens {
     return [
-      HomeScreen(),
+      HomeScreen(onLessonTap: switchToLessonScreen),
       _lessonsScreen ?? const Center(child: CircularProgressIndicator()),
       ProfileScreen(),
     ];

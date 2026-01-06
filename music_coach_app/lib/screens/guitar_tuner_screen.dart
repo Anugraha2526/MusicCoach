@@ -9,7 +9,10 @@ class GuitarTunerScreen extends StatelessWidget {
       appBar: AppBar(
         backgroundColor: const Color(0xFF0A1929),
         elevation: 0,
-        automaticallyImplyLeading: false,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          onPressed: () => Navigator.pop(context),
+        ),
         title: const Text(
           'Guitar Tuner',
           style: TextStyle(color: Colors.white),
