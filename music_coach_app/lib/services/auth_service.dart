@@ -39,6 +39,7 @@ class AuthService {
       final token = data['token']['access'];
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('access_token', token);
+      await prefs.setBool(_onboardingKey, true); // Assume logging in means already onboarded
       return true;
     }
     return false;
