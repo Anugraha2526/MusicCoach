@@ -63,30 +63,73 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Design System Colors
+    final Color backgroundColor = const Color(0xFF0F172A);
+    final Color primaryAccent = const Color(0xFF4FA2FF);
+    final Color primaryText = const Color(0xFFFFFFFF);
+    final Color secondaryText = const Color(0xFF848484);
+
     return Scaffold(
-      appBar: AppBar(title: Text('Forgot Password')),
+      backgroundColor: backgroundColor,
+      appBar: AppBar(
+        title: Text('Forgot Password', style: TextStyle(color: primaryText, fontWeight: FontWeight.bold)),
+        backgroundColor: backgroundColor,
+        elevation: 0,
+        centerTitle: true,
+        iconTheme: IconThemeData(color: primaryText),
+      ),
       body: SingleChildScrollView(
-        padding: EdgeInsets.all(16),
+        padding: EdgeInsets.all(24),
         child: Column(
           children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: primaryAccent.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(Icons.lock_reset, size: 40, color: primaryAccent),
+            ),
+            const SizedBox(height: 24),
             Text(
               'Enter your email to receive an OTP for password reset.',
-              style: TextStyle(fontSize: 16),
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 16, color: secondaryText),
             ),
-            SizedBox(height: 20),
+            SizedBox(height: 32),
             TextField(
               controller: emailController,
               keyboardType: TextInputType.emailAddress,
+              style: TextStyle(color: primaryText),
               decoration: InputDecoration(
                 labelText: 'Email',
-                border: OutlineInputBorder(),
+                labelStyle: TextStyle(color: secondaryText),
+                enabledBorder: OutlineInputBorder(
+                  borderSide: BorderSide(color: secondaryText.withOpacity(0.5)),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderSide: BorderSide(color: primaryAccent),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                filled: true,
+                fillColor: Colors.white.withOpacity(0.05),
+                prefixIcon: Icon(Icons.email_outlined, color: secondaryText),
               ),
             ),
-            SizedBox(height: 20),
+            SizedBox(height: 24),
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
                 onPressed: isLoading ? null : handlePasswordResetRequest,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: primaryAccent,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
                 child: isLoading
                     ? SizedBox(
                         height: 20,
@@ -96,7 +139,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                           strokeWidth: 2,
                         ),
                       )
-                    : Text('Send OTP'),
+                    : Text('Send OTP', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
               ),
             ),
           ],

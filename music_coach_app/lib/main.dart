@@ -7,9 +7,20 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   bool onboarded = await AuthService.hasCompletedOnboarding();
+  bool isLoggedIn = await AuthService.isLoggedIn();
 
-  // Determine initial route: onboarding for new users, otherwise main layout
-  String initialRoute = onboarded ? AppRoutes.main : AppRoutes.onboarding;
+  // Determine initial route
+  // 1. Not logged in -> Landing
+  // 2. Logged in but not onboarded -> Onboarding
+  // 3. Logged in and onboarded -> Main
+  String initialRoute;
+  if (!isLoggedIn) {
+    initialRoute = AppRoutes.landing;
+  } else if (!onboarded) {
+    initialRoute = AppRoutes.onboarding;
+  } else {
+    initialRoute = AppRoutes.main;
+  }
 
   runApp(MyApp(initialRoute: initialRoute));
 }

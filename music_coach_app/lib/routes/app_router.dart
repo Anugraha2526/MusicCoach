@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../screens/landing_screen.dart';
 import '../screens/login_screen.dart';
 import '../screens/register_screen.dart';
 import '../screens/home_screen.dart';
@@ -23,6 +24,8 @@ class AppRouter {
     switch (settings.name) {
 
       // Auth
+      case AppRoutes.landing:
+        return MaterialPageRoute(builder: (_) => const LandingScreen());
       case AppRoutes.login:
         return MaterialPageRoute(builder: (_) => LoginScreen());
       case AppRoutes.register:

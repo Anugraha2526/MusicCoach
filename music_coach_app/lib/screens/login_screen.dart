@@ -27,7 +27,7 @@ class _LoginScreenState extends State<LoginScreen> {
   void _checkAutoLogin() async {
     if (await AuthService.isLoggedIn()) {
       if (mounted) {
-        Navigator.pushReplacementNamed(context, '/home');
+        Navigator.pushReplacementNamed(context, '/main');
       }
     }
   }
@@ -53,7 +53,7 @@ class _LoginScreenState extends State<LoginScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Login successful')),
       );
-      Navigator.pushReplacementNamed(context, '/home');
+      Navigator.pushReplacementNamed(context, '/main');
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Invalid email or password')),
@@ -63,60 +63,165 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Check if we can go back (i.e., not the initial route)
+    // Design System Colors
+    final Color backgroundColor = const Color(0xFF0F172A);
+    final Color primaryAccent = const Color(0xFF4FA2FF);
+    final Color primaryText = const Color(0xFFFFFFFF);
+    final Color secondaryText = const Color(0xFF848484);
+
+    // Check if we can go back
     final canPop = Navigator.canPop(context);
     
     return PopScope(
-      canPop: false, // Always prevent default back behavior
-      onPopInvoked: (didPop) {
-        // If we can go back, navigate to home instead of going back normally
-        // This ensures that after logout, back button goes to home, not profile
-        if (canPop && !didPop) {
-          Navigator.pushNamedAndRemoveUntil(context, '/home', (route) => false);
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        if (canPop) {
+           Navigator.pop(context); // Allow normal back if pushed
+        } else {
+           // If we can't pop (root), replace to home if somehow here? 
+           // Or more likely, go back to Landing if we came from there?
+           // Actually, if we are at Login, we came from Landing. Pop should go back to Landing.
+           Navigator.pop(context);
         }
       },
       child: Scaffold(
+        backgroundColor: backgroundColor,
         appBar: AppBar(
-          title: Text('Login'),
-          // Automatically shows back button if there's a route to go back to
-          automaticallyImplyLeading: canPop,
+          backgroundColor: backgroundColor,
+          elevation: 0,
+          leading: IconButton(
+            icon: Icon(Icons.arrow_back, color: primaryText),
+            onPressed: () => Navigator.pop(context),
+          ),
+          title: Text(
+            'Log In',
+            style: TextStyle(color: primaryText, fontWeight: FontWeight.bold),
+          ),
+          centerTitle: true,
         ),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            TextField(
-              controller: emailController,
-              decoration: InputDecoration(labelText: 'Email'),
-            ),
-            TextField(
-              controller: passwordController,
-              obscureText: true,
-              decoration: InputDecoration(labelText: 'Password'),
-            ),
-            SizedBox(height: 20),
-            isLoading
-                ? CircularProgressIndicator()
-                : ElevatedButton(
-                    onPressed: handleLogin,
-                    child: Text('Login'),
+        body: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Icon
+                Center(
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: primaryAccent.withOpacity(0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.lock_outline_rounded,
+                      size: 40,
+                      color: primaryAccent,
+                    ),
                   ),
-            SizedBox(height: 10),
-            TextButton(
-              onPressed: () {
-                Navigator.pushNamed(context, '/forgot-password');
-              },
-              child: Text('Forgot Password?'),
+                ),
+                const SizedBox(height: 32),
+
+                // Email Field
+                TextField(
+                  controller: emailController,
+                  style: TextStyle(color: primaryText),
+                  decoration: InputDecoration(
+                    labelText: 'Email',
+                    labelStyle: TextStyle(color: secondaryText),
+                    enabledBorder: OutlineInputBorder(
+                      borderSide: BorderSide(color: secondaryText.withOpacity(0.5)),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderSide: BorderSide(color: primaryAccent),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    filled: true,
+                    fillColor: Colors.white.withOpacity(0.05),
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // Password Field
+                TextField(
+                  controller: passwordController,
+                  obscureText: true,
+                  style: TextStyle(color: primaryText),
+                  decoration: InputDecoration(
+                    labelText: 'Password',
+                    labelStyle: TextStyle(color: secondaryText),
+                    enabledBorder: OutlineInputBorder(
+                      borderSide: BorderSide(color: secondaryText.withOpacity(0.5)),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderSide: BorderSide(color: primaryAccent),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    filled: true,
+                    fillColor: Colors.white.withOpacity(0.05),
+                  ),
+                ),
+                const SizedBox(height: 24),
+
+                // Login Button
+                isLoading
+                    ? Center(child: CircularProgressIndicator(color: primaryAccent))
+                    : ElevatedButton(
+                        onPressed: handleLogin,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: primaryAccent,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          elevation: 0,
+                        ),
+                        child: const Text(
+                          'Log In',
+                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                const SizedBox(height: 16),
+
+                // Forgot Password
+                TextButton(
+                  onPressed: () {
+                    Navigator.pushNamed(context, '/forgot-password');
+                  },
+                  child: Text(
+                    'Forgot Password?',
+                    style: TextStyle(color: primaryAccent),
+                  ),
+                ),
+
+                // Register Link
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      "Don't have an account? ",
+                      style: TextStyle(color: secondaryText),
+                    ),
+                    TextButton(
+                      onPressed: () {
+                        // Navigate to Register but replace current route so back goes to Landing
+                        Navigator.pushReplacementNamed(context, '/register');
+                      },
+                      child: Text(
+                        'Sign Up',
+                        style: TextStyle(color: primaryAccent, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ),
-            TextButton(
-              onPressed: () {
-                Navigator.pushNamed(context, '/register');
-              },
-              child: Text('Don’t have an account? Register'),
-            ),
-          ],
+          ),
         ),
-      ),
       ),
     );
   }
