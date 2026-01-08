@@ -44,6 +44,7 @@ INSTALLED_APPS = [
     'corsheaders',          
     'apps.accounts',
     'apps.instruments',
+    'apps.lessons',
 ]
 
 MIDDLEWARE = [

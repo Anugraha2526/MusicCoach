@@ -45,13 +45,31 @@ class _MainLayoutState extends State<MainLayout> {
         screen = const PianoLessonScreen();
         break;
       case 'vocals':
-        screen = const VocalLessonScreen();
+        screen = VocalLessonScreen(
+          onBackPressed: () {
+            setState(() {
+              _currentIndex = 0; // Go back to Home
+            });
+          },
+        );
         break;
       case 'guitar':
-        screen = const GuitarTunerScreen();
+        screen = GuitarTunerScreen(
+          onBackPressed: () {
+            setState(() {
+              _currentIndex = 0; // Go back to Home
+            });
+          },
+        );
         break;
       case 'pitch':
-        screen = const RealtimePitchGraphScreen();
+        screen = RealtimePitchGraphScreen(
+          onBackPressed: () {
+            setState(() {
+              _currentIndex = 0; // Go back to Home
+            });
+          },
+        );
         break;
       default:
         // Fallback to piano if no instrument selected
@@ -75,7 +93,13 @@ class _MainLayoutState extends State<MainLayout> {
         break;
       case 'vocals':
       case 'vocal':
-        screen = const VocalLessonScreen();
+        screen = VocalLessonScreen(
+          onBackPressed: () {
+            setState(() {
+              _currentIndex = 0; // Go back to Home
+            });
+          },
+        );
         break;
       default:
         return; // Don't switch for other types

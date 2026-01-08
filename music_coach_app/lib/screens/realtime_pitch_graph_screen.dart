@@ -1,17 +1,33 @@
 import 'package:flutter/material.dart';
 
 class RealtimePitchGraphScreen extends StatelessWidget {
-  const RealtimePitchGraphScreen({super.key});
+  final VoidCallback? onBackPressed;
+
+  const RealtimePitchGraphScreen({super.key, this.onBackPressed});
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
+    return PopScope(
+      canPop: onBackPressed == null,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        if (onBackPressed != null) {
+          onBackPressed!();
+        }
+      },
+      child: Scaffold(
+        appBar: AppBar(
         backgroundColor: const Color(0xFF0A1929),
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () => Navigator.pop(context),
+          onPressed: () {
+            if (onBackPressed != null) {
+              onBackPressed!();
+            } else {
+              Navigator.of(context).maybePop();
+            }
+          },
         ),
         title: const Text(
           'Realtime Pitch Graph',
@@ -29,6 +45,7 @@ class RealtimePitchGraphScreen extends StatelessWidget {
             fontWeight: FontWeight.w400,
           ),
         ),
+      ),
       ),
     );
   }

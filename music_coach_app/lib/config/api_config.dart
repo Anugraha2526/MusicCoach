@@ -24,5 +24,13 @@ class ApiConfig {
   // Instrument endpoints
   static const String instruments = "$instrumentsBase/";
   static String instrumentById(int id) => "$instrumentsBase/$id/";
+  
+  // Lesson endpoints
+  static const String lessonsBase = "$baseUrl/api/lessons";
+  static const String lessonUnitsBase = "$baseUrl/api/lesson-units";
+  static String lessonUnits(int lessonId) => "$lessonsBase/$lessonId/units/";
+  static String lessonSequences(int lessonId) => "$lessonsBase/$lessonId/sequences/";
+  static String unitQuiz(int unitId) => "$lessonUnitsBase/$unitId/quiz/";
+  static String unitNotation(int unitId) => "$lessonUnitsBase/$unitId/notation/";
 }
 

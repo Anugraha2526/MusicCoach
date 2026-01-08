@@ -17,5 +17,8 @@ class AppRoutes {
   static const pianoLesson = '/piano-lesson';
   static const vocalLesson = '/vocal-lesson';
   static const guitarTuner = '/guitar-tuner';
-  static const realtimePitchGraph = '/realtime-pitch-graph'; 
+  static const realtimePitchGraph = '/realtime-pitch-graph';
+  
+  // Lesson detail (with lesson ID parameter)
+  static const lessonDetail = '/lesson-detail';
 }
