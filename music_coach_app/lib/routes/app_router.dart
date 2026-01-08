@@ -15,6 +15,7 @@ import '../screens/vocal_lesson_screen.dart';
 import '../screens/guitar_tuner_screen.dart';
 import '../screens/realtime_pitch_graph_screen.dart';
 
+
 import 'app_routes.dart';
 
 class AppRouter {
@@ -57,6 +58,9 @@ class AppRouter {
         return MaterialPageRoute(builder: (_) => const GuitarTunerScreen());
       case AppRoutes.realtimePitchGraph:
         return MaterialPageRoute(builder: (_) => const RealtimePitchGraphScreen());
+      
+      // Lesson detail screen (receives lessonId as argument)
+
 
       default:
         return MaterialPageRoute(

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'dart:math' as math;
+import 'interactive_piano_lesson.dart';
 
 class PianoLessonScreen extends StatefulWidget {
   const PianoLessonScreen({super.key});
@@ -38,6 +40,12 @@ class _PianoLessonScreenState extends State<PianoLessonScreen>
   @override
   void initState() {
     super.initState();
+    // Enforce portrait mode when entering this screen
+    SystemChrome.setPreferredOrientations([
+      DeviceOrientation.portraitUp,
+    ]);
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+
     // Initialize animation controllers for all lessons
     for (var lesson in _allLessons) {
       _animationControllers[lesson.id] = AnimationController(
@@ -66,8 +74,25 @@ class _PianoLessonScreenState extends State<PianoLessonScreen>
   void _onLessonTap(int lessonId) {
     setState(() {
       if (selectedLessonIndex == lessonId) {
-        // If clicked again, navigate to lesson detail (leave for now)
-        // Navigator.pushNamed(context, '/lesson-detail', arguments: lessonId);
+        // If clicked again, navigate to lesson detail
+        // For now, lesson 1 in UI maps to lesson ID 1 in backend
+        // TODO: Map UI lesson IDs to backend lesson IDs properly
+        if (lessonId == 1) { // Assuming first lesson is always the interactive one for now
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => InteractivePianoLessonScreen(lessonId: lessonId),
+            ),
+          );
+        } else {
+          // Placeholder for future lessons
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('This lesson is coming soon!'),
+              backgroundColor: Color(0xFF00B4D8),
+            ),
+          );
+        }
       } else {
         // Deselect previous lesson
         if (selectedLessonIndex != null) {
