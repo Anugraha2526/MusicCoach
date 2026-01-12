@@ -47,34 +47,76 @@ class Command(BaseCommand):
             self.stdout.write(f'Lesson already exists: {lesson.title}')
             # Clear existing data for strict re-seed
             lesson.sequences.all().delete()
-            self.stdout.write('Cleared existing sequences for re-seed')
-
         # =====================
-        # DYNAMIC PRACTICE SEQUENCES
+        # LESSON 1: INTRODUCTION (Classic Simon Says)
         # =====================
-        self.stdout.write('Creating practice sequences...')
-        sequences = [
-            # Part 1: CCDD
+        self.stdout.write('Seeding sequences for "Introduction to Piano"...')
+        # Clear existing
+        lesson.sequences.all().delete()
+        
+        lesson1_sequences = [
             {"order": 1, "notes": ["C", "C", "D", "D"]},
-            # Part 2: CCDDE
             {"order": 2, "notes": ["C", "C", "D", "D", "E"]},
-            # Part 3: CCDDED
             {"order": 3, "notes": ["C", "C", "D", "D", "E", "D"]},
-            # Part 4: CCDDEDC
             {"order": 4, "notes": ["C", "C", "D", "D", "E", "D", "C"]},
         ]
 
-        for seq_data in sequences:
+        for seq_data in lesson1_sequences:
             PracticeSequence.objects.create(
                 lesson=lesson,
                 order=seq_data['order'],
+                sequence_type='listen', # Default type
                 notes=seq_data['notes']
             )
 
-        self.stdout.write(self.style.SUCCESS(f'Successfully seeded sequences for "{lesson.title}"'))
+        # =====================
+        # LESSON 2: NOTES C, D, E (New Types)
+        # =====================
+        lesson2, created = Lesson.objects.get_or_create(
+            module=module,
+            order=2,
+            defaults={
+                'title': 'Notes C, D, E',
+                'lesson_type': 'practice',
+            }
+        )
+        if created:
+            self.stdout.write(self.style.SUCCESS(f'Created lesson: {lesson2.title}'))
+        else:
+            self.stdout.write(f'Lesson already exists: {lesson2.title}')
+            # Clear existing data
+            lesson2.sequences.all().delete()
+
+        self.stdout.write(f'Seeding sequences for "{lesson2.title}"...')
+        lesson2_sequences = [
+            # 1. Learn C (Visual + Mini-map)
+            {"order": 1, "type": "learn", "notes": ["C"]},
+            # 2. Learn D
+            {"order": 2, "type": "learn", "notes": ["D"]},
+            # 3. Learn E
+            {"order": 3, "type": "learn", "notes": ["E"]},
+            # 4. Identify (Drag & Drop) - Targets C, D, E
+            {"order": 4, "type": "identify", "notes": ["C", "D", "E"]},
+            # 5. Sight Read C (4 Cs)
+            {"order": 5, "type": "read", "notes": ["C", "C", "C", "C"]},
+            # 6. Sight Read D
+            {"order": 6, "type": "read", "notes": ["D", "D", "D", "D"]},
+            # 7. Sight Read E
+            {"order": 7, "type": "read", "notes": ["E", "E", "E", "E"]},
+        ]
+
+        for seq_data in lesson2_sequences:
+            PracticeSequence.objects.create(
+                lesson=lesson2,
+                order=seq_data['order'],
+                sequence_type=seq_data['type'],
+                notes=seq_data['notes']
+            )
+
+        self.stdout.write(self.style.SUCCESS(f'Successfully seeded sequences for all lessons.'))
         
         self.stdout.write('')
         self.stdout.write('Summary:')
-        self.stdout.write(f'  - 1 Module (Level 1)')
-        self.stdout.write(f'  - 1 Lesson (Introduction to Piano)')
-        self.stdout.write(f'  - {len(sequences)} Practice Sequences')
+        self.stdout.write(f'  - Module: {module.title}')
+        self.stdout.write(f'  - Lesson 1: {lesson.title} ({len(lesson1_sequences)} seqs)')
+        self.stdout.write(f'  - Lesson 2: {lesson2.title} ({len(lesson2_sequences)} seqs)')
