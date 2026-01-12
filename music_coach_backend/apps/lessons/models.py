@@ -65,8 +65,16 @@ class PracticeSequence(models.Model):
     Dynamic note sequence for interactive piano lessons.
     Example: ["C", "C", "D", "D"]
     """
+    SEQUENCE_TYPES = [
+        ('listen', 'Listen & Repeat'),
+        ('learn', 'Learn Note'),
+        ('identify', 'Identify Note'),
+        ('read', 'Sight Reading'),
+    ]
+
     lesson = models.ForeignKey(Lesson, on_delete=models.CASCADE, related_name='sequences')
     order = models.PositiveIntegerField(default=1, help_text="Part number (1, 2, 3...)")
+    sequence_type = models.CharField(max_length=20, choices=SEQUENCE_TYPES, default='listen', help_text="Type of interaction")
     notes = models.JSONField(help_text="List of notes, e.g. ['C', 'D', 'E']")
     
     created_at = models.DateTimeField(auto_now_add=True)

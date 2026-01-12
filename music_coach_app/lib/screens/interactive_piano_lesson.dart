@@ -1,8 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:audioplayers/audioplayers.dart';
+import 'dart:async';
 import '../models/lesson_models.dart';
 import '../services/lesson_service.dart';
+import '../widgets/lesson/piano_keyboard.dart';
+import '../widgets/lesson/piano_minimap.dart';
+import '../widgets/lesson/notation_widget.dart';
+import '../widgets/lesson/draggable_note_option.dart';
 
 /// Interactive piano lesson screen that forces landscape mode.
 /// Implements a "Simon Says" style play-and-follow game.
@@ -23,7 +28,9 @@ class _InteractivePianoLessonScreenState extends State<InteractivePianoLessonScr
   List<PracticeSequence> sequences = [];
   bool isLoading = true;
   int currentSequenceIndex = 0;
-  List<String> currentInput = [];
+  List<String> currentInput = []; // For playing modes
+  Set<String> identifiedNotes = {}; // For Identify mode (which notes are placed correctly)
+  double currentReadingProgress = 0.0; // 0.0 to 1.0 for duration bars
   bool isPlayingSequence = false;
   String? highlightedKey;
   bool isLessonComplete = false;
@@ -31,39 +38,48 @@ class _InteractivePianoLessonScreenState extends State<InteractivePianoLessonScr
   
   // Audio
   final Map<String, AudioPlayer> _audioPlayers = {};
+  Timer? _durationTimer;
+  static const int durationTargetMs = 800; // Easier target (0.8s)
+  static const int timerStepMs = 50; // Progress update interval
+  
+  // Note colors mapping
+  final Map<String, Color> noteColors = {
+    'C': const Color(0xFF00B4D8),
+    'D': const Color(0xFF6C5CE7),
+    'E': const Color(0xFF00D9A5),
+  };
 
   @override
   void initState() {
     super.initState();
-    // Force landscape orientation
     SystemChrome.setPreferredOrientations([
       DeviceOrientation.landscapeLeft,
       DeviceOrientation.landscapeRight,
     ]);
-    // Hide system UI for fullscreen
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
 
     _initAudio();
     _loadSequences();
   }
+  
+  // ... (Keep existing _initAudio, _loadSequences, dispose, _startNote, _stopNote implementations) ...
+  // Re-implementing them here for clarity in the replacement if needed, 
+  // but simpler to keep structure.
+  // Since I am replacing the CLASS CONTENT, I must provide full methods.
+
+  // Shuffled options for Identify mode
+  List<String> shuffledOptions = [];
 
   Future<void> _initAudio() async {
-    // Preload sounds
     final notes = ['C', 'D', 'E', 'F', 'G', 'A', 'B'];
-    print('DEBUG: Initializing Audio...');
-    
     for (var note in notes) {
       try {
         final player = AudioPlayer();
+        // Set to low latency for better game response
+        await player.setPlayerMode(PlayerMode.lowLatency); 
         await player.setReleaseMode(ReleaseMode.stop);
-        // Force volume to max
-        await player.setVolume(1.0); 
-        
-        // Debug path
-        final path = 'audio/${note}4.mp3';
-        print('DEBUG: Loading asset: $path');
-        
-        await player.setSource(AssetSource(path));
+        // Pre-set the source to avoid load lag during play
+        await player.setSource(AssetSource('audio/${note}4.mp3'));
         _audioPlayers[note] = player;
       } catch (e) {
         print('DEBUG: Error initializing audio for $note: $e');
@@ -74,549 +90,480 @@ class _InteractivePianoLessonScreenState extends State<InteractivePianoLessonScr
   Future<void> _loadSequences() async {
     try {
       final fetchedSequences = await LessonService.fetchLessonSequences(widget.lessonId);
-      setState(() {
-        sequences = fetchedSequences;
-        isLoading = false;
-        errorMessage = null; 
-      });
-      // Start slightly delayed to let UI settle
-      Future.delayed(const Duration(milliseconds: 1000), _playCurrentSequence);
+      if (mounted) {
+        setState(() {
+          sequences = fetchedSequences;
+          isLoading = false;
+          errorMessage = null; 
+        });
+        _startCurrentSequence();
+      }
     } catch (e) {
-      print('Error loading sequences: $e');
-      setState(() {
-        isLoading = false;
-        errorMessage = 'Failed to load lesson data.\n\n$e';
-      });
+      if (mounted) {
+        setState(() {
+          isLoading = false;
+          errorMessage = 'Failed to load lesson data.\n\n$e';
+        });
+      }
+    }
+  }
+
+  void _startCurrentSequence() {
+    if (sequences.isEmpty || currentSequenceIndex >= sequences.length) return;
+    
+    final currentSeq = sequences[currentSequenceIndex];
+    
+    // Shuffle options for Identify mode to ensure they aren't right below target
+    List<String> options = [];
+    if (currentSeq.type == 'identify') {
+      options = List.from(currentSeq.notes);
+      options.shuffle();
+    }
+
+    setState(() {
+       currentInput = [];
+       identifiedNotes = {};
+       highlightedKey = null;
+       shuffledOptions = options;
+    });
+
+    // Auto-play only for 'listen' mode
+    if (currentSeq.type == 'listen') {
+       Future.delayed(const Duration(milliseconds: 1000), _playCurrentSequenceAudio);
+    } else if (currentSeq.type == 'learn') {
+       // Highlight the note to learn immediately
+       if (currentSeq.notes.isNotEmpty) {
+          setState(() => highlightedKey = currentSeq.notes.first);
+       }
     }
   }
 
   @override
   void dispose() {
-    SystemChrome.setPreferredOrientations([
-      DeviceOrientation.portraitUp,
-    ]);
+    SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-    
     for (var player in _audioPlayers.values) {
       player.dispose();
     }
     super.dispose();
   }
 
-  // --- Audio Logic ---
-
-  // Track active "sessions" for each note to handle rapid re-triggering
-  final Map<String, int> _noteActiveTokens = {};
-
   Future<void> _startNote(String note) async {
-    try {
-      // 1. Invalidate any previous fade/stop loops for this note
-      final newToken = (_noteActiveTokens[note] ?? 0) + 1;
-      _noteActiveTokens[note] = newToken;
-
-      setState(() => highlightedKey = note);
-      
-      final player = _audioPlayers[note];
-      if (player != null) {
-        print('DEBUG: Playing note $note (Token: $newToken)');
-        // 2. Stop immediately and reset volume
+    final player = _audioPlayers[note];
+    if (player != null) {
+      try {
         await player.stop(); 
-        await player.setVolume(1.0); 
         await player.resume();
-      } else {
-        print('DEBUG: Player for $note is null!');
+      } catch (e) {
+        print('DEBUG: Playback error for $note: $e');
       }
-    } catch (e) {
-      print('DEBUG: Error playing note $note: $e');
     }
   }
 
   Future<void> _stopNote(String note) async {
-    try {
-      if (!isPlayingSequence) { 
-          final player = _audioPlayers[note];
-          final currentToken = _noteActiveTokens[note];
-
-          if (player != null) {
-            // Fade out loop
-            for (var i = 10; i >= 0; i--) {
-               if (_noteActiveTokens[note] != currentToken) return;
-               
-               await player.setVolume(i / 10.0);
-               await Future.delayed(const Duration(milliseconds: 15)); 
-            }
-            
-            if (_noteActiveTokens[note] == currentToken) {
-               await player.stop();
-               if (mounted && highlightedKey == note) {
-                 setState(() => highlightedKey = null);
-               }
-            }
-          } else {
-             if (mounted) setState(() => highlightedKey = null);
-          }
-      }
-    } catch (e) {
-      print('Error stopping note: $e');
+    final player = _audioPlayers[note];
+    if (player != null) {
+       await player.stop();
     }
   }
 
-  // For the DEMO sequence, we play full duration (or fixed duration)
-  Future<void> _playDemoNote(String note) async {
-     try {
-      setState(() => highlightedKey = note);
-      
-      final player = _audioPlayers[note];
-      if (player != null) {
-        // Must reset volume in case it was faded out previously
-        await player.setVolume(1.0); 
-        await player.stop();
-        await player.resume();
+  void _startDurationTimer(String note) {
+    if (_durationTimer != null) return;
+
+    final currentSeq = sequences[currentSequenceIndex];
+    if (currentInput.length >= currentSeq.notes.length) return;
+    
+    final targetNote = currentSeq.notes[currentInput.length];
+    if (note != targetNote) return;
+
+    _durationTimer = Timer.periodic(const Duration(milliseconds: timerStepMs), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
       }
 
-      // Hold visual highlight and let sound play for a bit
-      await Future.delayed(const Duration(milliseconds: 500));
-      
-      if (mounted) setState(() => highlightedKey = null);
-    } catch (e) {
-      print('Error playing demo note: $e');
-    }
-  }
-
-  Future<void> _playCurrentSequence() async {
-    if (sequences.isEmpty || currentSequenceIndex >= sequences.length) return;
-    
-    setState(() {
-      isPlayingSequence = true;
-      currentInput = []; 
-    });
-
-    final targetNotes = sequences[currentSequenceIndex].notes;
-    
-    await Future.delayed(const Duration(milliseconds: 1000));
-
-    for (var note in targetNotes) {
-      if (!mounted) return;
-      await _playDemoNote(note);
-      await Future.delayed(const Duration(milliseconds: 100)); // gap
-    }
-
-    if (mounted) {
       setState(() {
-        isPlayingSequence = false;
+        currentReadingProgress += (timerStepMs / durationTargetMs);
+        if (currentReadingProgress >= 1.0) {
+          currentReadingProgress = 1.0;
+          timer.cancel();
+          _durationTimer = null;
+          _handleDurationComplete();
+        }
+      });
+    });
+  }
+
+  void _stopDurationTimer() {
+    if (_durationTimer != null) {
+      _durationTimer!.cancel();
+      _durationTimer = null;
+    }
+    if (currentReadingProgress < 0.9) { // Only reset if not basically finished
+      setState(() {
+        currentReadingProgress = 0.0;
       });
     }
   }
 
-  // --- User Input Logic ---
+  void _handleDurationComplete() {
+    // Current note completed
+    setState(() {
+       final currentSeq = sequences[currentSequenceIndex];
+       currentInput.add(currentSeq.notes[currentInput.length]);
+       currentReadingProgress = 0.0;
+    });
+    
+    // Check if whole sequence complete
+    final currentSeq = sequences[currentSequenceIndex];
+    if (currentInput.length == currentSeq.notes.length) {
+       _handleSequenceSuccess();
+    }
+  }
 
+  Future<void> _playCurrentSequenceAudio() async {
+    if (sequences.isEmpty) return;
+    setState(() => isPlayingSequence = true);
+    
+    final targetNotes = sequences[currentSequenceIndex].notes;
+    await Future.delayed(const Duration(milliseconds: 500));
+
+    for (var note in targetNotes) {
+      if (!mounted) return;
+      setState(() => highlightedKey = note);
+      
+      _startNote(note);
+      await Future.delayed(const Duration(milliseconds: 700));
+      
+      if (!mounted) return;
+      setState(() => highlightedKey = null);
+      await Future.delayed(const Duration(milliseconds: 150)); 
+    }
+
+    if (mounted) setState(() => isPlayingSequence = false);
+  }
+
+  // --- Interaction Logic ---
   void _onKeyTapDown(String note) {
-    if (isPlayingSequence) return; 
-
+    if (isPlayingSequence) return;
+    
+    final currentSeq = sequences[currentSequenceIndex];
     _startNote(note);
     
+    if (currentSeq.type == 'identify') return; 
+
+    if (currentSeq.type == 'read') {
+      _startDurationTimer(note);
+      return;
+    }
+
     setState(() {
       currentInput.add(note);
     });
-
     _checkInput();
   }
 
   void _onKeyTapUp(String note) {
-    if (isPlayingSequence) return;
-    _stopNote(note);
+    final currentSeq = sequences[currentSequenceIndex];
+    if (currentSeq.type == 'read') {
+      _stopDurationTimer();
+    }
+  }
+
+  void _onNoteDrop(String key, String droppedNote) {
+    final currentSeq = sequences[currentSequenceIndex];
+    if (currentSeq.type != 'identify') return;
+
+    if (key == droppedNote) {
+      _startNote(key); 
+      setState(() {
+        identifiedNotes.add(key);
+      });
+      _checkIdentifyProgress();
+    } else {
+       ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Try again!'), 
+          duration: Duration(milliseconds: 500), 
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
   }
 
   void _checkInput() {
-    if (sequences.isEmpty) return;
-    
-    final targetNotes = sequences[currentSequenceIndex].notes;
-    
-    // Check match
+    final currentSeq = sequences[currentSequenceIndex];
+    final targetNotes = currentSeq.notes;
+
+    if (currentSeq.type == 'learn') {
+       if (currentInput.isNotEmpty) {
+          if (currentInput.last == targetNotes.first) {
+             _handleSequenceSuccess();
+          } else {
+             setState(() => currentInput = []); 
+          }
+       }
+       return;
+    }
+
     for (int i = 0; i < currentInput.length; i++) {
         if (currentInput[i] != targetNotes[i]) {
             _handleError();
             return;
         }
     }
-
-    // Check complete
     if (currentInput.length == targetNotes.length) {
       _handleSequenceSuccess();
     }
   }
 
+  void _checkIdentifyProgress() {
+    final currentSeq = sequences[currentSequenceIndex];
+    final targets = currentSeq.notes.toSet();
+    if (identifiedNotes.containsAll(targets)) {
+       _handleSequenceSuccess();
+    }
+  }
+
   void _handleError() {
+    currentInput = [];
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text('Oops! Listen carefully and try again.'),
-        duration: Duration(milliseconds: 1000),
+        content: Text('Oops! Try again.'), 
+        duration: Duration(milliseconds: 1000), 
         backgroundColor: Colors.redAccent,
+        behavior: SnackBarBehavior.floating,
       ),
     );
-    // Reset after delay
-    Future.delayed(const Duration(milliseconds: 1000), () {
-        if(mounted) {
-            setState(() => currentInput = []);
-            _playCurrentSequence(); 
-        }
-    });
+    if (sequences[currentSequenceIndex].type == 'listen') {
+       Future.delayed(const Duration(milliseconds: 1000), _playCurrentSequenceAudio);
+    }
   }
 
   void _handleSequenceSuccess() async {
-    // Keep the "success" feel for a moment before moving on
     await Future.delayed(const Duration(milliseconds: 800));
-    
+
     if (currentSequenceIndex < sequences.length - 1) {
-      setState(() {
-        currentSequenceIndex++;
-        currentInput = [];
-      });
-      _playCurrentSequence();
+      if (mounted) {
+        setState(() {
+          currentSequenceIndex++;
+        });
+        _startCurrentSequence();
+      }
     } else {
       _showCompletionScreen();
     }
   }
 
   void _showCompletionScreen() {
-    setState(() {
-      isLessonComplete = true;
-    });
+    setState(() => isLessonComplete = true);
   }
 
   @override
   Widget build(BuildContext context) {
-    if (isLoading) {
-      return const Scaffold(
-        backgroundColor: Color(0xFF1E293B),
-        body: Center(child: CircularProgressIndicator(color: Color(0xFF00B4D8))),
-      );
-    }
+    if (isLoading) return const Scaffold(backgroundColor: Color(0xFF1E293B), body: Center(child: CircularProgressIndicator(color: Color(0xFF4FA2FF))));
+    if (errorMessage != null) return Scaffold(backgroundColor: Color(0xFF1E293B), body: Center(child: Padding(padding: const EdgeInsets.all(32), child: Text(errorMessage!, textAlign: TextAlign.center, style: const TextStyle(color: Colors.white70, fontSize: 16)))));
+    if (isLessonComplete) return _buildCompletionScreen();
+    if (sequences.isEmpty) return const Scaffold(backgroundColor: Color(0xFF1E293B), body: Center(child: Text("No data")));
 
-    if (errorMessage != null) {
-      return Scaffold(
-        backgroundColor: const Color(0xFF1E293B),
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(Icons.error_outline, size: 60, color: Colors.orangeAccent),
-              const SizedBox(height: 16),
-              const Text(
-                'Oops! Connection Failed.',
-                style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 8),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 32),
-                child: Text(
-                  errorMessage!,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(color: Colors.white70),
-                ),
-              ),
-              const SizedBox(height: 24),
-              ElevatedButton(
-                onPressed: () {
-                  setState(() {
-                    isLoading = true;
-                    errorMessage = null;
-                  });
-                  _loadSequences();
-                },
-                child: const Text('Try Again'),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    if (!isLoading && sequences.isEmpty && errorMessage == null) {
-       return const Scaffold(
-        backgroundColor: Color(0xFF1E293B),
-        body: Center(child: Text('No sequences found.', style: TextStyle(color: Colors.white))),
-      );
-    }
-
-    if (isLessonComplete) {
-      return Scaffold(
-        backgroundColor: const Color(0xFF00D26A),
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(Icons.star, size: 80, color: Colors.white),
-              const SizedBox(height: 24),
-              const Text(
-                'LESSON COMPLETE!',
-                style: TextStyle(color: Colors.white, fontSize: 40, fontWeight: FontWeight.bold, letterSpacing: 2),
-              ),
-              const SizedBox(height: 48),
-              SizedBox(
-                width: 200, height: 60,
-                child: ElevatedButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.white,
-                    foregroundColor: const Color(0xFF00D26A),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-                  ),
-                  child: const Text('CONTINUE', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    // Main Game UI
+    final currentSeq = sequences[currentSequenceIndex];
+    final screenWidth = MediaQuery.of(context).size.width;
+    
+    // User requested: Even smaller piano
+    final pianoWidthMultiplier = (currentSeq.type == 'learn' || currentSeq.type == 'identify') ? 0.22 : 0.32;
+    
     return Scaffold(
-      backgroundColor: const Color(0xFF1E293B),
+      backgroundColor: const Color(0xFF1E293B), 
       body: SafeArea(
         child: Column(
           children: [
-            // --- Top Bar ---
-            Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Row(
+            _buildHeader(currentSeq),
+            
+            Expanded(
+              child: Column(
                 children: [
-                  IconButton(
-                    onPressed: isPlayingSequence ? null : _playCurrentSequence,
-                    icon: const Icon(Icons.replay_circle_filled_rounded),
-                    color: const Color(0xFF00B4D8),
-                    iconSize: 48,
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
-                      child: LinearProgressIndicator(
-                        value: sequences.isEmpty ? 0.0 : (currentSequenceIndex / sequences.length),
-                        minHeight: 16,
-                        backgroundColor: const Color(0xFF334155),
-                        color: const Color(0xFF00D26A),
-                      ),
-                    ),
-                  ),
+                   // Notation Layout (Treble staff)
+                   if (currentSeq.type == 'read') 
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 400),
+                          child: NotationView(
+                             notes: currentSeq.notes,
+                             completedIndex: currentInput.length,
+                             currentProgress: currentReadingProgress,
+                           ),
+                        ),
+                      )
+                   else
+                      const Spacer(flex: 1), // Placeholder when no notation
+                   
+                   // Main Piano Area
+                   Expanded(
+                     flex: 4,
+                     child: Center(
+                       child: SizedBox(
+                         width: screenWidth * pianoWidthMultiplier,
+                         height: 110,
+                         child: PianoKeyboard(
+                           highlightedKey: currentSeq.type == 'learn' || isPlayingSequence ? highlightedKey : null,
+                           onNoteDown: _onKeyTapDown,
+                           onNoteUp: _onKeyTapUp,
+                           onNoteDrop: currentSeq.type == 'identify' ? _onNoteDrop : null,
+                           showQuestionMarks: currentSeq.type == 'identify',
+                           showLabels: true,
+                           identifiedNotes: identifiedNotes,
+                         ),
+                       ),
+                     ),
+                   ),
+
+                   // Mode-specific supplementary UI (Bottom) - Minimap etc
+                   Padding(
+                     padding: const EdgeInsets.only(bottom: 12),
+                     child: _buildSupplementaryUI(currentSeq),
+                   ),
                 ],
               ),
             ),
-            
-            // --- Status Text ---
-            Expanded(
-              child: Center(
-                child: Text(
-                  isPlayingSequence ? "Listen..." : "Repeat the steps!",
-                  style: TextStyle(
-                    color: Colors.white.withOpacity(0.9),
-                    fontSize: 32,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 1.2,
-                  ),
-                ),
-              ),
-            ),
-            
-            // --- Piano Keys ---
-            // Center the piano and restrict width to ~45% of screen (Duolingo style)
-            Expanded(
-              child: Center(
-                child: SizedBox(
-                   // In landscape, width is the "longer" dimension. 
-                   // We want 45% of that width.
-                  width: MediaQuery.of(context).size.width * 0.45,
-                  height: 240, 
-                  child: LayoutBuilder(
-                    builder: (context, constraints) {
-                      final totalWidth = constraints.maxWidth;
-                      // Account for margins: 3 keys * 4px margin (2-left, 2-right) = 12px total margin
-                      // Actually let's just make the calculation safer
-                      final whiteKeyWidth = (totalWidth - 12) / 3; 
-                      final blackKeyWidth = whiteKeyWidth * 0.55; 
-                      final blackKeyHeight = 240 * 0.45; // 45% height
-
-                      return Stack(
-                        alignment: Alignment.topLeft,
-                        clipBehavior: Clip.none,
-                        children: [
-                          // White Keys Layer
-                          Row(
-                            children: [
-                              _WhiteKey(
-                                label: 'C',
-                                width: whiteKeyWidth,
-                                isPressed: highlightedKey == 'C',
-                                onTapDown: () => _onKeyTapDown('C'),
-                                onTapUp: () => _onKeyTapUp('C'),
-                              ),
-                              _WhiteKey(
-                                label: 'D',
-                                width: whiteKeyWidth,
-                                isPressed: highlightedKey == 'D',
-                                isMiddle: true,
-                                onTapDown: () => _onKeyTapDown('D'),
-                                onTapUp: () => _onKeyTapUp('D'),
-                              ),
-                              _WhiteKey(
-                                label: 'E',
-                                width: whiteKeyWidth,
-                                isPressed: highlightedKey == 'E',
-                                onTapDown: () => _onKeyTapDown('E'),
-                                onTapUp: () => _onKeyTapUp('E'),
-                              ),
-                            ],
-                          ),
-
-                          // Black Keys Layer
-                          // Position logic needs to account for the margins too.
-                          // Key 1 center: margin(2) + w/2
-                          // Key 2 center: margin(2) + w + margin(4) + w/2 ... complicated
-                          // Let's approximate positions visually since they are decorative.
-                          // C# is between C and D.
-                          // C ends at: 2 + width + 2. D starts at: 3*margin + width.
-                          // Gap center is at: 2 + width + 2 (edge of C) ... roughly (width + 4)
-                          Positioned(
-                            left: (whiteKeyWidth + 4) - (blackKeyWidth / 2),
-                            top: 0,
-                            child: _BlackKey(
-                              label: '', 
-                              width: blackKeyWidth,
-                              height: blackKeyHeight,
-                            ),
-                          ),
-                          // D# is between D and E
-                          Positioned(
-                            left: ((whiteKeyWidth + 4) * 2) - (blackKeyWidth / 2),
-                            top: 0,
-                            child: _BlackKey(
-                              label: '',
-                              width: blackKeyWidth,
-                              height: blackKeyHeight,
-                            ),
-                          ),
-                        ],
-                      );
-                    },
-                  ),
-                ),
-              ),
-            ),
           ],
         ),
       ),
     );
   }
-}
 
-class _WhiteKey extends StatelessWidget {
-  final String label;
-  final double width;
-  final bool isPressed;
-  final bool isMiddle;
-  final VoidCallback onTapDown;
-  final VoidCallback onTapUp;
+  Widget _buildSupplementaryUI(PracticeSequence seq) {
+    if (seq.type == 'learn') {
+      return PianoRangeMinimap(highlightMiddle: true);
+    }
+    
+    if (seq.type == 'identify') {
+      return Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: shuffledOptions.map((note) {
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: DraggableNoteOption(
+              note: note,
+              isMatched: identifiedNotes.contains(note),
+            ),
+          );
+        }).toList(),
+      );
+    }
+    
+    return const SizedBox.shrink();
+  }
 
-  const _WhiteKey({
-    required this.label,
-    required this.width,
-    required this.isPressed,
-    this.isMiddle = false,
-    required this.onTapDown,
-    required this.onTapUp,
-  });
+  Widget _buildHeader(PracticeSequence seq) {
+    String instruction = "";
+    Color titleColor = Colors.white;
 
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTapDown: (_) => onTapDown(),
-      onTapUp: (_) => onTapUp(),
-      onTapCancel: onTapUp, // Handle drag off
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 50),
-        width: width,
-        height: double.infinity,
-        margin: const EdgeInsets.symmetric(horizontal: 2), // Small gap for rounded look
-        decoration: BoxDecoration(
-          color: isPressed ? const Color(0xFFE2E8F0) : Colors.white,
-          border: Border.all(color: Colors.black, width: 1),
-          // All corners rounded
-          borderRadius: BorderRadius.circular(12),
-          gradient: isPressed 
-              ? const LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [Color(0xFFE2E8F0), Color(0xFFCBD5E1)],
-                )
-              : null,
-          boxShadow: [
-             BoxShadow(
-                color: Colors.black.withOpacity(0.2),
-                offset: const Offset(0, 2),
-                blurRadius: 2,
+    switch(seq.type) {
+      case 'listen': instruction = isPlayingSequence ? "Listen..." : "Repeat the sequence"; break;
+      case 'learn': 
+         final note = seq.notes.first;
+         instruction = "Play the note $note";
+         titleColor = noteColors[note] ?? Colors.white;
+         break;
+      case 'identify': instruction = "Identify the keys"; break;
+      case 'read': instruction = "Play the written notes"; break;
+    }
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 4),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              IconButton(
+                onPressed: () => Navigator.pop(context), 
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+                icon: const Icon(Icons.close, color: Colors.white70)
               ),
-          ],
-        ),
-        alignment: Alignment.bottomCenter,
-        padding: const EdgeInsets.only(bottom: 24),
-        child: Text(
-          label,
-          style: TextStyle(
-            color: Colors.black.withOpacity(0.7),
-            fontSize: 28,
-            fontWeight: FontWeight.bold,
+              const SizedBox(width: 12),
+              Expanded(
+                 child: Container(
+                   height: 6,
+                   decoration: BoxDecoration(
+                     color: Colors.white10,
+                     borderRadius: BorderRadius.circular(3),
+                   ),
+                   child: FractionallySizedBox(
+                     alignment: Alignment.centerLeft,
+                     widthFactor: (currentSequenceIndex + 1) / sequences.length,
+                     child: Container(
+                       decoration: BoxDecoration(
+                         color: const Color(0xFF00D26A),
+                         borderRadius: BorderRadius.circular(3),
+                       ),
+                     ),
+                   ),
+                 ),
+              ),
+              const SizedBox(width: 48),
+            ],
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class _BlackKey extends StatelessWidget {
-  final String label;
-  final double width;
-  final double height;
-
-  const _BlackKey({
-    required this.label,
-    required this.width,
-    required this.height,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: width,
-      height: height,
-      decoration: BoxDecoration(
-        color: Colors.black,
-        // All corners rounded
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFF1E1E1E), width: 2),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.5),
-            offset: const Offset(2, 2),
-            blurRadius: 4,
+          const SizedBox(height: 4),
+          Text(
+            instruction,
+            style: TextStyle(
+              fontSize: 22, 
+              fontWeight: FontWeight.bold, 
+              color: titleColor,
+              letterSpacing: 0.5,
+            ),
           ),
         ],
-        gradient: const LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [Color(0xFF333333), Colors.black],
-        ),
       ),
-      alignment: Alignment.bottomCenter,
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Text(
-        label,
-        style: const TextStyle(
-          color: Colors.white,
-          fontSize: 16,
-          fontWeight: FontWeight.bold,
+    );
+  }
+
+  Widget _buildCompletionScreen() {
+    return Scaffold(
+      backgroundColor: const Color(0xFF0F172A),
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: const Color(0xFF00D26A).withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.stars, size: 80, color: Color(0xFF00D26A)),
+            ),
+            const SizedBox(height: 32),
+            const Text(
+              'LESSON COMPLETE!', 
+              style: TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.bold, letterSpacing: 2)
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'You\'ve mastered notes C, D, and E!', 
+              style: TextStyle(color: Colors.white70, fontSize: 18)
+            ),
+            const SizedBox(height: 48),
+            ElevatedButton(
+              onPressed: () => Navigator.of(context).pop(),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF4FA2FF),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 16),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                elevation: 0,
+              ),
+              child: const Text('CONTINUE', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            ),
+          ],
         ),
       ),
     );
   }
 }
+
+  // End of file class
+

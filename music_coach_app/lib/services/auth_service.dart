@@ -18,9 +18,12 @@ class AuthService {
 
     if (response.statusCode == 201) {
       final data = jsonDecode(response.body);
-      final token = data['token']['access'];
+      final accessToken = data['token']['access'];
+      final refreshToken = data['token']['refresh'];
+      
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('access_token', token);
+      await prefs.setString('access_token', accessToken);
+      await prefs.setString('refresh_token', refreshToken);
       return true;
     }
     return false;
@@ -36,9 +39,12 @@ class AuthService {
 
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body);
-      final token = data['token']['access'];
+      final accessToken = data['token']['access'];
+      final refreshToken = data['token']['refresh'];
+      
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('access_token', token);
+      await prefs.setString('access_token', accessToken);
+      await prefs.setString('refresh_token', refreshToken);
       await prefs.setBool(_onboardingKey, true); // Assume logging in means already onboarded
       return true;
     }
@@ -56,6 +62,7 @@ class AuthService {
   static Future<void> logout() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('access_token');
+    await prefs.remove('refresh_token');
     await prefs.remove(_onboardingKey); // Reset onboarding on logout
   }
 
@@ -106,10 +113,56 @@ class AuthService {
     return value;
   }
 
-  // -------------------- Get stored token --------------------
+  // -------------------- Get stored token & Refresh if needed --------------------
   static Future<String?> getToken() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString('access_token');
+  }
+  
+  static Future<String?> getRefreshToken() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('refresh_token');
+  }
+
+  static Future<bool> tryRefreshToken() async {
+    final refreshToken = await getRefreshToken();
+    if (refreshToken == null) return false;
+
+    // Construct URL manually or add to ApiConfig if possible. 
+    // Assuming structure: ApiConfig.baseUrl + '/accounts/token/refresh/'
+    // But since I don't want to edit ApiConfig right now if I can avoid it, I'll infer from another URL
+    // e.g. ApiConfig.login is BASE/accounts/login/
+    // So refresh is BASE/accounts/token/refresh/
+    
+    // Safer to just use the base if known, or relative to login.
+    // Hack: replacing 'login/' with 'token/refresh/' in login URL
+    final refreshUrl = ApiConfig.login.replaceFirst('login/', 'token/refresh/');
+
+    try {
+      final response = await http.post(
+        Uri.parse(refreshUrl),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'refresh': refreshToken}),
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final newAccessToken = data['access'];
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('access_token', newAccessToken);
+        // Sometimes refresh endpoint returns a new refresh token too (depending on setting 'ROTATE_REFRESH_TOKENS')
+        if (data.containsKey('refresh')) {
+           await prefs.setString('refresh_token', data['refresh']);
+        }
+        return true;
+      } else {
+        // Refresh failed (expired refresh token?), logout
+        await logout();
+        return false;
+      }
+    } catch (e) {
+      return false;
+    }
   }
 
   // -------------------- Profile --------------------
@@ -117,10 +170,24 @@ class AuthService {
     final token = await getToken();
     if (token == null) return null;
 
-    final response = await http.get(
+    var response = await http.get(
       Uri.parse(ApiConfig.profile),
       headers: {'Authorization': 'Bearer $token'},
     );
+
+    if (response.statusCode == 401) {
+      // Token might be expired, try refresh
+      final refreshSuccess = await tryRefreshToken();
+      if (refreshSuccess) {
+        final newToken = await getToken();
+        response = await http.get(
+          Uri.parse(ApiConfig.profile),
+          headers: {'Authorization': 'Bearer $newToken'},
+        );
+      } else {
+        return null;
+      }
+    }
 
     if (response.statusCode == 200) return jsonDecode(response.body);
     return null;

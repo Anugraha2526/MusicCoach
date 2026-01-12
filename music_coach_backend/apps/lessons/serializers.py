@@ -12,7 +12,7 @@ from .models import Module, Lesson, PracticeSequence
 class PracticeSequenceSerializer(serializers.ModelSerializer):
     class Meta:
         model = PracticeSequence
-        fields = ['id', 'order', 'notes']
+        fields = ['id', 'order', 'notes', 'sequence_type']
 
 
 class LessonSerializer(serializers.ModelSerializer):
