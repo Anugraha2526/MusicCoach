@@ -113,6 +113,58 @@ class Command(BaseCommand):
                 notes=seq_data['notes']
             )
 
+        # =====================
+        # LESSON 3: PLAY AT YOUR OWN PACE (Hot Cross Buns)
+        # =====================
+        lesson3, created = Lesson.objects.get_or_create(
+            module=module,
+            order=3,
+            defaults={
+                'title': 'Play at your own pace',
+                'lesson_type': 'practice',
+            }
+        )
+        if created:
+            self.stdout.write(self.style.SUCCESS(f'Created lesson: {lesson3.title}'))
+        else:
+            self.stdout.write(f'Lesson already exists: {lesson3.title}')
+            # Clear existing data
+            lesson3.sequences.all().delete()
+
+        self.stdout.write(f'Seeding sequences for "{lesson3.title}"...')
+        
+        # Hot Cross Buns notation:
+        # E (1 beat), empty bar, EDC-, EDC-, CCDD, EDC-, EDC-, EDC-, CCDD, EDC-
+        # Using "-" for rests/holds, they won't be shown in UI but create spacing
+        lesson3_sequences = [
+            {
+                "order": 1, 
+                "type": "play", 
+                "notes": [
+                    "E", "-", "-", "-",  # E held for 1 bar
+                    # Empty bar removed
+                    "E", "D", "C", "-",  # EDC-
+                    "E", "D", "C", "-",  # EDC-
+                    "C", "C", "D", "D",  # CCDD
+                    "E", "D", "C", "-",  # EDC-
+                    "E", "D", "C", "-",  # EDC-
+                    "E", "D", "C", "-",  # EDC-
+                    "C", "C", "D", "D",  # CCDD
+                    "E", "D", "C", "-",  # EDC-
+                ],
+                "time_signature": "4/4"
+            },
+        ]
+
+        for seq_data in lesson3_sequences:
+            PracticeSequence.objects.create(
+                lesson=lesson3,
+                order=seq_data['order'],
+                sequence_type=seq_data['type'],
+                notes=seq_data['notes'],
+                time_signature=seq_data.get('time_signature', '4/4')
+            )
+
         self.stdout.write(self.style.SUCCESS(f'Successfully seeded sequences for all lessons.'))
         
         self.stdout.write('')
@@ -120,3 +172,4 @@ class Command(BaseCommand):
         self.stdout.write(f'  - Module: {module.title}')
         self.stdout.write(f'  - Lesson 1: {lesson.title} ({len(lesson1_sequences)} seqs)')
         self.stdout.write(f'  - Lesson 2: {lesson2.title} ({len(lesson2_sequences)} seqs)')
+        self.stdout.write(f'  - Lesson 3: {lesson3.title} ({len(lesson3_sequences)} seqs)')

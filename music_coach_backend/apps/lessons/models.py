@@ -70,12 +70,14 @@ class PracticeSequence(models.Model):
         ('learn', 'Learn Note'),
         ('identify', 'Identify Note'),
         ('read', 'Sight Reading'),
+        ('play', 'Play Mode'),
     ]
 
     lesson = models.ForeignKey(Lesson, on_delete=models.CASCADE, related_name='sequences')
     order = models.PositiveIntegerField(default=1, help_text="Part number (1, 2, 3...)")
     sequence_type = models.CharField(max_length=20, choices=SEQUENCE_TYPES, default='listen', help_text="Type of interaction")
     notes = models.JSONField(help_text="List of notes, e.g. ['C', 'D', 'E']")
+    time_signature = models.CharField(max_length=10, default="4/4", help_text="Time Signature (e.g. 4/4)")
     
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

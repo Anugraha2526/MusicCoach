@@ -61,12 +61,14 @@ class PracticeSequence {
   final int order;
   final String type; // 'listen', 'learn', 'identify', 'read'
   final List<String> notes; // e.g., ["C", "C", "D", "D"]
+  final String timeSignature; // e.g. "4/4"
 
   PracticeSequence({
     required this.id,
     required this.order,
     this.type = 'listen',
     required this.notes,
+    this.timeSignature = '4/4',
   });
 
   factory PracticeSequence.fromJson(Map<String, dynamic> json) {
@@ -75,6 +77,7 @@ class PracticeSequence {
       order: json['order'],
       type: json['sequence_type'] ?? 'listen',
       notes: List<String>.from(json['notes']),
+      timeSignature: json['time_signature'] ?? '4/4',
     );
   }
 }
