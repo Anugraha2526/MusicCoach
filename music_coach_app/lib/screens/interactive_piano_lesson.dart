@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:audioplayers/audioplayers.dart';
+import 'package:flutter_soloud/flutter_soloud.dart';
 import 'dart:async';
 import '../models/lesson_models.dart';
 import '../services/lesson_service.dart';
@@ -8,6 +8,8 @@ import '../widgets/lesson/piano_keyboard.dart';
 import '../widgets/lesson/piano_minimap.dart';
 import '../widgets/lesson/notation_widget.dart';
 import '../widgets/lesson/draggable_note_option.dart';
+import '../widgets/lesson/moving_notation_widget.dart';
+import '../widgets/lesson/colored_piano_keyboard.dart';
 
 /// Interactive piano lesson screen that forces landscape mode.
 /// Implements a "Simon Says" style play-and-follow game.
@@ -23,7 +25,7 @@ class InteractivePianoLessonScreen extends StatefulWidget {
   State<InteractivePianoLessonScreen> createState() => _InteractivePianoLessonScreenState();
 }
 
-class _InteractivePianoLessonScreenState extends State<InteractivePianoLessonScreen> {
+class _InteractivePianoLessonScreenState extends State<InteractivePianoLessonScreen> with SingleTickerProviderStateMixin {
   // Game State
   List<PracticeSequence> sequences = [];
   bool isLoading = true;
@@ -36,8 +38,17 @@ class _InteractivePianoLessonScreenState extends State<InteractivePianoLessonScr
   bool isLessonComplete = false;
   String? errorMessage;
   
-  // Audio
-  final Map<String, AudioPlayer> _audioPlayers = {};
+  // Play mode state (Lesson 3)
+  int currentNoteIndex = 0; // Current position in the song
+  String? wrongNote; // Track wrong note for visual feedback
+  double scrollProgress = 0.0; // Smooth scrolling progress 0.0 to 1.0
+  Timer? _scrollTimer;
+  
+  // Audio (SoLoud)
+  late SoLoud _soloud;
+  AudioSource? _backtrackSource;
+  Map<String, AudioSource> _noteSources = {};
+  SoundHandle? _backtrackHandle;
   Timer? _durationTimer;
   static const int durationTargetMs = 800; // Easier target (0.8s)
   static const int timerStepMs = 50; // Progress update interval
@@ -58,7 +69,6 @@ class _InteractivePianoLessonScreenState extends State<InteractivePianoLessonScr
     ]);
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
 
-    _initAudio();
     _loadSequences();
   }
   
@@ -71,24 +81,43 @@ class _InteractivePianoLessonScreenState extends State<InteractivePianoLessonScr
   List<String> shuffledOptions = [];
 
   Future<void> _initAudio() async {
-    final notes = ['C', 'D', 'E', 'F', 'G', 'A', 'B'];
-    for (var note in notes) {
-      try {
-        final player = AudioPlayer();
-        // Set to low latency for better game response
-        await player.setPlayerMode(PlayerMode.lowLatency); 
-        await player.setReleaseMode(ReleaseMode.stop);
-        // Pre-set the source to avoid load lag during play
-        await player.setSource(AssetSource('audio/${note}4.mp3'));
-        _audioPlayers[note] = player;
-      } catch (e) {
-        print('DEBUG: Error initializing audio for $note: $e');
+    print('DEBUG: Starting SoLoud audio initialization');
+    
+    try {
+      // Initialize SoLoud engine with low buffer for latency < 10ms
+      _soloud = SoLoud.instance;
+      // Default is 2048 (~46ms). 512 is ~11ms which is imperceptible.
+      await _soloud.init(bufferSize: 512);
+      print('DEBUG: SoLoud engine initialized (Low Latency Mode)');
+      
+      // Pre-load backtrack audio source
+      _backtrackSource = await _soloud.loadAsset(
+        'assets/audio/hot_cross_buns.mp3',
+        mode: LoadMode.memory, // Pre-load into memory for instant playback
+      );
+      print('DEBUG: Backtrack source loaded');
+      
+      // Pre-load all note sounds
+      final notes = ['C', 'D', 'E', 'F', 'G', 'A', 'B'];
+      for (var note in notes) {
+        _noteSources[note] = await _soloud.loadAsset(
+          'assets/audio/${note}4.mp3',
+          mode: LoadMode.memory,
+        );
       }
+      print('DEBUG: All note sources loaded (${_noteSources.length} notes)');
+      
+      print('DEBUG: SoLoud audio initialization COMPLETED');
+    } catch (e) {
+      print('DEBUG: SoLoud init error: $e');
     }
   }
 
   Future<void> _loadSequences() async {
     try {
+      // Ensure audio is ready BEFORE showing the lesson
+      await _initAudio(); 
+      
       final fetchedSequences = await LessonService.fetchLessonSequences(widget.lessonId);
       if (mounted) {
         setState(() {
@@ -125,6 +154,13 @@ class _InteractivePianoLessonScreenState extends State<InteractivePianoLessonScr
        identifiedNotes = {};
        highlightedKey = null;
        shuffledOptions = options;
+       
+       // Reset play mode state
+       if (currentSeq.type == 'play') {
+         currentNoteIndex = 0;
+         wrongNote = null;
+         scrollProgress = 0.0;
+       }
     });
 
     // Auto-play only for 'listen' mode
@@ -135,6 +171,17 @@ class _InteractivePianoLessonScreenState extends State<InteractivePianoLessonScr
        if (currentSeq.notes.isNotEmpty) {
           setState(() => highlightedKey = currentSeq.notes.first);
        }
+    } else if (currentSeq.type == 'play') {
+       // Backtrack audio starts on first note input now (in _handlePlayModeInput)
+       
+       // Highlight the first note immediately if it's not a rest
+       if (currentSeq.notes.isNotEmpty) {
+          if (currentSeq.notes.first == '-') {
+             _startSmoothScroll();
+          } else {
+             setState(() => highlightedKey = currentSeq.notes.first);
+          }
+       }
     }
   }
 
@@ -142,29 +189,35 @@ class _InteractivePianoLessonScreenState extends State<InteractivePianoLessonScr
   void dispose() {
     SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-    for (var player in _audioPlayers.values) {
-      player.dispose();
+    
+    // Dispose SoLoud resources
+    if (_backtrackSource != null) {
+      _soloud.disposeSource(_backtrackSource!);
     }
+    for (var source in _noteSources.values) {
+      _soloud.disposeSource(source);
+    }
+    _soloud.deinit();
+    
+    _scrollTimer?.cancel();
+    _durationTimer?.cancel();
     super.dispose();
   }
 
   Future<void> _startNote(String note) async {
-    final player = _audioPlayers[note];
-    if (player != null) {
-      try {
-        await player.stop(); 
-        await player.resume();
-      } catch (e) {
-        print('DEBUG: Playback error for $note: $e');
-      }
+    // Instant playback with SoLoud (< 10ms latency)
+    if (_noteSources.containsKey(note)) {
+      // Fire-and-forget: Don't await the result to keep UI thread unblocked
+      _soloud.play(_noteSources[note]!);
     }
+    
+    // Only for Read modes
+    _startDurationTimer(note);
   }
 
-  Future<void> _stopNote(String note) async {
-    final player = _audioPlayers[note];
-    if (player != null) {
-       await player.stop();
-    }
+  void _stopNote(String note) {
+    // Notes auto-stop, no action needed
+    _stopDurationTimer();
   }
 
   void _startDurationTimer(String note) {
@@ -232,7 +285,9 @@ class _InteractivePianoLessonScreenState extends State<InteractivePianoLessonScr
       if (!mounted) return;
       setState(() => highlightedKey = note);
       
-      _startNote(note);
+      if (note != '-') {
+        await _startNote(note);
+      }
       await Future.delayed(const Duration(milliseconds: 700));
       
       if (!mounted) return;
@@ -241,6 +296,140 @@ class _InteractivePianoLessonScreenState extends State<InteractivePianoLessonScr
     }
 
     if (mounted) setState(() => isPlayingSequence = false);
+  }
+
+
+
+  // --- Play Mode Methods (Lesson 3) ---
+  Future<void> _startBacktrackAudio() async {
+    // Instant playback with SoLoud
+    if (_backtrackSource != null) {
+      _backtrackHandle = await _soloud.play(
+        _backtrackSource!,
+        looping: true,
+        volume: 1.0,
+      );
+    }
+  }
+
+  void _stopBacktrackAudio() {
+    // Instant pause
+    if (_backtrackHandle != null) {
+      _soloud.setPause(_backtrackHandle!, true);
+    }
+  }
+
+  void _resumeBacktrackAudio() {
+    // Instant resume
+    if (_backtrackHandle != null) {
+      _soloud.setPause(_backtrackHandle!, false);
+    }
+  }
+
+  void _handlePlayModeInput(String note) {
+    if (scrollProgress > 0) return; // Prevent input while animating
+    
+    final currentSeq = sequences[currentSequenceIndex];
+    if (currentNoteIndex >= currentSeq.notes.length) return;
+
+    // If current note is a rest (shouldn't happen if logic works, but safety check)
+    if (currentSeq.notes[currentNoteIndex] == '-') {
+       _startSmoothScroll();
+       return;
+    }
+
+    final expectedNote = currentSeq.notes[currentNoteIndex];
+
+    if (note == expectedNote) {
+      // Correct note!
+      setState(() {
+        wrongNote = null;
+        highlightedKey = null;
+      });
+
+      // Start or Resume Backtrack (instant with lowLatency mode)
+      if (currentNoteIndex == 0) {
+        _startBacktrackAudio();
+      } else {
+        _resumeBacktrackAudio();
+      }
+
+      // Start smooth scroll animation
+      _startSmoothScroll();
+    } else {
+      // Wrong note
+      setState(() {
+        wrongNote = note;
+      });
+
+      // Music pauses if wrong note is pressed
+      _stopBacktrackAudio();
+
+      // Clear wrong note after a brief moment
+      Future.delayed(const Duration(milliseconds: 300), () {
+        if (mounted) {
+          setState(() {
+            wrongNote = null;
+          });
+        }
+      });
+    }
+  }
+
+  void _startSmoothScroll() {
+    _scrollTimer?.cancel();
+    
+    final currentSeq = sequences[currentSequenceIndex];
+    // Tuned to 1125ms to correct for "half beat late" drift at the end
+    final int scrollDurationMs = 1185;
+    
+    // Use normal speed for backtrack as requested
+    // Use normal speed for backtrack as requested
+    // (SoLoud handles this via the play method parameters, default is 1.0)
+    
+    final startTime = DateTime.now();
+    const stepMs = 20; // 50fps for better balance of smoothness and performance
+
+    _scrollTimer = Timer.periodic(const Duration(milliseconds: stepMs), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+
+      final int elapsed = DateTime.now().difference(startTime).inMilliseconds;
+
+      setState(() {
+        // Calculate progress based on real elapsed time to avoid drift
+        scrollProgress = (elapsed / scrollDurationMs).clamp(0.0, 1.0);
+        
+        if (scrollProgress >= 1.0) {
+          scrollProgress = 0.0;
+          currentNoteIndex++;
+          // highlightedKey logic moved to below
+          timer.cancel();
+          _scrollTimer = null;
+
+          // Check if song is complete
+          if (currentNoteIndex >= currentSeq.notes.length) {
+            highlightedKey = null;
+            _stopBacktrackAudio();
+            _handleSequenceSuccess();
+            return;
+          }
+          
+          // Automatic Progression for Rests
+          if (currentSeq.notes[currentNoteIndex] == '-') {
+             // Recursively start scrolling for the rest
+             highlightedKey = null;
+             _startSmoothScroll();
+          } else {
+             // Reached a new note, pause and wait for user
+             _stopBacktrackAudio();
+             highlightedKey = currentSeq.notes[currentNoteIndex];
+          }
+        }
+      });
+    });
   }
 
   // --- Interaction Logic ---
@@ -254,6 +443,11 @@ class _InteractivePianoLessonScreenState extends State<InteractivePianoLessonScr
 
     if (currentSeq.type == 'read') {
       _startDurationTimer(note);
+      return;
+    }
+
+    if (currentSeq.type == 'play') {
+      _handlePlayModeInput(note);
       return;
     }
 
@@ -370,7 +564,65 @@ class _InteractivePianoLessonScreenState extends State<InteractivePianoLessonScr
     final currentSeq = sequences[currentSequenceIndex];
     final screenWidth = MediaQuery.of(context).size.width;
     
-    // User requested: Even smaller piano
+    // Special layout for 'play' mode (Lesson 3)
+    if (currentSeq.type == 'play') {
+      return Scaffold(
+        backgroundColor: const Color(0xFF1E293B),
+        body: SafeArea(
+          child: Column(
+            children: [
+              _buildHeader(currentSeq),
+              
+              // 50/50 split: Notation at top, Piano at bottom
+              Expanded(
+                child: Column(
+                  children: [
+                    // Notation Area (50% height)
+                    Expanded(
+                      flex: 1,
+                      child: Center(
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                          child: MovingNotationWidget(
+                            notes: currentSeq.notes,
+                            currentNoteIndex: currentNoteIndex,
+                            wrongNote: wrongNote,
+                            scrollProgress: scrollProgress,
+                            timeSignature: currentSeq.timeSignature,
+                          ),
+                        ),
+                      ),
+                    ),
+                    
+                    // Piano Area (50% height)
+                    Expanded(
+                      flex: 1,
+                      child: Center(
+                        child: SizedBox(
+                          width: screenWidth * 0.45, // Bigger piano for play mode
+                          height: 140, // Taller keys too
+                          child: ColoredPianoKeyboard(
+                            highlightedKey: highlightedKey,
+                            onNoteDown: _onKeyTapDown,
+                            onNoteUp: _onKeyTapUp,
+                            currentNote: currentNoteIndex < currentSeq.notes.length 
+                                ? currentSeq.notes[currentNoteIndex] 
+                                : null,
+                            wrongNote: wrongNote,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+    
+    // Original layout for other lesson types
     final pianoWidthMultiplier = (currentSeq.type == 'learn' || currentSeq.type == 'identify') ? 0.22 : 0.32;
     
     return Scaffold(
@@ -469,6 +721,7 @@ class _InteractivePianoLessonScreenState extends State<InteractivePianoLessonScr
          break;
       case 'identify': instruction = "Identify the keys"; break;
       case 'read': instruction = "Play the written notes"; break;
+      case 'play': instruction = "Play at your own pace"; break;
     }
 
     return Padding(
@@ -484,24 +737,44 @@ class _InteractivePianoLessonScreenState extends State<InteractivePianoLessonScr
                 icon: const Icon(Icons.close, color: Colors.white70)
               ),
               const SizedBox(width: 12),
-              Expanded(
-                 child: Container(
-                   height: 6,
-                   decoration: BoxDecoration(
-                     color: Colors.white10,
-                     borderRadius: BorderRadius.circular(3),
-                   ),
-                   child: FractionallySizedBox(
-                     alignment: Alignment.centerLeft,
-                     widthFactor: (currentSequenceIndex + 1) / sequences.length,
-                     child: Container(
-                       decoration: BoxDecoration(
-                         color: const Color(0xFF00D26A),
-                         borderRadius: BorderRadius.circular(3),
-                       ),
-                     ),
-                   ),
-                 ),
+               Expanded(
+                  child: Container(
+                    height: 6,
+                    decoration: BoxDecoration(
+                      color: Colors.white10,
+                      borderRadius: BorderRadius.circular(3),
+                    ),
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        double progress;
+                        if (seq.type == 'play') {
+                          // Play Mode: Continuous Smooth Flow
+                          // (Index + Fraction of current note) / Total
+                          final totalNotes = seq.notes.isNotEmpty ? seq.notes.length : 1;
+                          progress = (currentNoteIndex + scrollProgress) / totalNotes;
+                        } else {
+                          // Other Modes: Step-based
+                          progress = (currentSequenceIndex + 1) / sequences.length;
+                        }
+                        
+                        // Clamp and ensure valid
+                        progress = progress.clamp(0.0, 1.0);
+
+                        return FractionallySizedBox(
+                          alignment: Alignment.centerLeft,
+                          widthFactor: progress,
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 300),
+                            curve: Curves.easeOut,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF58CC02), // Duolingo Green
+                              borderRadius: BorderRadius.circular(3),
+                            ),
+                          ),
+                        );
+                      }
+                    ),
+                ),
               ),
               const SizedBox(width: 48),
             ],
