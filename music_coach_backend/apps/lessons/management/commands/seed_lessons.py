@@ -165,6 +165,55 @@ class Command(BaseCommand):
                 time_signature=seq_data.get('time_signature', '4/4')
             )
 
+        # =====================
+        # LESSON 4: REHEARSAL (Continuous Play)
+        # =====================
+        lesson4, created = Lesson.objects.get_or_create(
+            module=module,
+            order=4,
+            defaults={
+                'title': 'Rehearsal',
+                'lesson_type': 'practice',
+            }
+        )
+        if created:
+            self.stdout.write(self.style.SUCCESS(f'Created lesson: {lesson4.title}'))
+        else:
+            self.stdout.write(f'Lesson already exists: {lesson4.title}')
+            # Clear existing data
+            lesson4.sequences.all().delete()
+
+        self.stdout.write(f'Seeding sequences for "{lesson4.title}"...')
+        
+        # Exact same notes as Lesson 3 ("Hot Cross Buns"), but sequence_type='perform'
+        lesson4_sequences = [
+            {
+                "order": 1, 
+                "type": "perform", 
+                "notes": [
+                    "E", "-", "-", "-",  # E held for 1 bar
+                    "E", "D", "C", "-",  # EDC-
+                    "E", "D", "C", "-",  # EDC-
+                    "C", "C", "D", "D",  # CCDD
+                    "E", "D", "C", "-",  # EDC-
+                    "E", "D", "C", "-",  # EDC-
+                    "E", "D", "C", "-",  # EDC-
+                    "C", "C", "D", "D",  # CCDD
+                    "E", "D", "C", "-",  # EDC-
+                ],
+                "time_signature": "4/4"
+            },
+        ]
+
+        for seq_data in lesson4_sequences:
+            PracticeSequence.objects.create(
+                lesson=lesson4,
+                order=seq_data['order'],
+                sequence_type=seq_data['type'],
+                notes=seq_data['notes'],
+                time_signature=seq_data.get('time_signature', '4/4')
+            )
+
         self.stdout.write(self.style.SUCCESS(f'Successfully seeded sequences for all lessons.'))
         
         self.stdout.write('')

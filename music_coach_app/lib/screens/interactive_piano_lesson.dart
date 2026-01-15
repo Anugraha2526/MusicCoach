@@ -156,7 +156,7 @@ class _InteractivePianoLessonScreenState extends State<InteractivePianoLessonScr
        shuffledOptions = options;
        
        // Reset play mode state
-       if (currentSeq.type == 'play') {
+       if (currentSeq.type == 'play' || currentSeq.type == 'perform') {
          currentNoteIndex = 0;
          wrongNote = null;
          scrollProgress = 0.0;
@@ -171,11 +171,13 @@ class _InteractivePianoLessonScreenState extends State<InteractivePianoLessonScr
        if (currentSeq.notes.isNotEmpty) {
           setState(() => highlightedKey = currentSeq.notes.first);
        }
-    } else if (currentSeq.type == 'play') {
+    } else if (currentSeq.type == 'play' || currentSeq.type == 'perform') {
        // Backtrack audio starts on first note input now (in _handlePlayModeInput)
        
        // Highlight the first note immediately if it's not a rest
        if (currentSeq.notes.isNotEmpty) {
+          // In perform mode, we might want to start automatically? 
+          // For now, let's keep it consistent: start on first tap.
           if (currentSeq.notes.first == '-') {
              _startSmoothScroll();
           } else {
@@ -327,11 +329,39 @@ class _InteractivePianoLessonScreenState extends State<InteractivePianoLessonScr
   }
 
   void _handlePlayModeInput(String note) {
-    if (scrollProgress > 0) return; // Prevent input while animating
+    if (scrollProgress > 0 && sequences[currentSequenceIndex].type == 'play') return; // Prevent input while animating in standard Play mode
     
     final currentSeq = sequences[currentSequenceIndex];
     if (currentNoteIndex >= currentSeq.notes.length) return;
 
+    // PERFORM MODE LOGIC:
+    if (currentSeq.type == 'perform') {
+        // Start on first note if not started
+        if (currentNoteIndex == 0 && scrollProgress == 0.0 && _scrollTimer == null) {
+             _startBacktrackAudio();
+             _startSmoothScroll();
+        }
+
+        final expectedNote = currentSeq.notes[currentNoteIndex];
+        if (note == expectedNote) {
+           // Visual feedback only
+           setState(() {
+             wrongNote = null;
+             // highlightedKey = null; // Optional: clear hint if they got it
+           });
+           // Play user note logic is handled in _onKeyTapDown -> _startNote calling
+        } else {
+           setState(() {
+             wrongNote = note;
+           });
+           Future.delayed(const Duration(milliseconds: 300), () {
+            if (mounted) setState(() => wrongNote = null);
+           });
+        }
+        return;
+    }
+
+    // STANDARD PLAY MODE LOGIC (Lesson 3):
     // If current note is a rest (shouldn't happen if logic works, but safety check)
     if (currentSeq.notes[currentNoteIndex] == '-') {
        _startSmoothScroll();
@@ -403,9 +433,9 @@ class _InteractivePianoLessonScreenState extends State<InteractivePianoLessonScr
         scrollProgress = (elapsed / scrollDurationMs).clamp(0.0, 1.0);
         
         if (scrollProgress >= 1.0) {
+          // MOVE TO NEXT NOTE
           scrollProgress = 0.0;
           currentNoteIndex++;
-          // highlightedKey logic moved to below
           timer.cancel();
           _scrollTimer = null;
 
@@ -416,16 +446,26 @@ class _InteractivePianoLessonScreenState extends State<InteractivePianoLessonScr
             _handleSequenceSuccess();
             return;
           }
-          
-          // Automatic Progression for Rests
-          if (currentSeq.notes[currentNoteIndex] == '-') {
-             // Recursively start scrolling for the rest
-             highlightedKey = null;
+
+          if (currentSeq.type == 'perform') {
+             // PERFORM MODE: CONTINUOUS PLAY
+             // Do NOT stop audio.
+             // Update visual hint for next note
+             highlightedKey = currentSeq.notes[currentNoteIndex];
+             // Automatically start scrolling for the next note immediately
              _startSmoothScroll();
           } else {
-             // Reached a new note, pause and wait for user
-             _stopBacktrackAudio();
-             highlightedKey = currentSeq.notes[currentNoteIndex];
+              // PLAY MODE: PAUSE AND WAIT
+              // Automatic Progression for Rests
+              if (currentSeq.notes[currentNoteIndex] == '-') {
+                 // Recursively start scrolling for the rest
+                 highlightedKey = null;
+                 _startSmoothScroll();
+              } else {
+                 // Reached a new note, pause and wait for user
+                 _stopBacktrackAudio();
+                 highlightedKey = currentSeq.notes[currentNoteIndex];
+              }
           }
         }
       });
@@ -446,7 +486,7 @@ class _InteractivePianoLessonScreenState extends State<InteractivePianoLessonScr
       return;
     }
 
-    if (currentSeq.type == 'play') {
+    if (currentSeq.type == 'play' || currentSeq.type == 'perform') {
       _handlePlayModeInput(note);
       return;
     }
@@ -564,8 +604,8 @@ class _InteractivePianoLessonScreenState extends State<InteractivePianoLessonScr
     final currentSeq = sequences[currentSequenceIndex];
     final screenWidth = MediaQuery.of(context).size.width;
     
-    // Special layout for 'play' mode (Lesson 3)
-    if (currentSeq.type == 'play') {
+    // Special layout for 'play' and 'perform' mode (Lesson 3 & 4)
+    if (currentSeq.type == 'play' || currentSeq.type == 'perform') {
       return Scaffold(
         backgroundColor: const Color(0xFF1E293B),
         body: SafeArea(
@@ -722,6 +762,7 @@ class _InteractivePianoLessonScreenState extends State<InteractivePianoLessonScr
       case 'identify': instruction = "Identify the keys"; break;
       case 'read': instruction = "Play the written notes"; break;
       case 'play': instruction = "Play at your own pace"; break;
+      case 'perform': instruction = "Keep up with the music!"; break;
     }
 
     return Padding(
@@ -747,7 +788,7 @@ class _InteractivePianoLessonScreenState extends State<InteractivePianoLessonScr
                     child: LayoutBuilder(
                       builder: (context, constraints) {
                         double progress;
-                        if (seq.type == 'play') {
+                        if (seq.type == 'play' || seq.type == 'perform') {
                           // Play Mode: Continuous Smooth Flow
                           // (Index + Fraction of current note) / Total
                           final totalNotes = seq.notes.isNotEmpty ? seq.notes.length : 1;
