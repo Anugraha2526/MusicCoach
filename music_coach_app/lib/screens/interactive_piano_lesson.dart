@@ -43,6 +43,8 @@ class _InteractivePianoLessonScreenState extends State<InteractivePianoLessonScr
   String? wrongNote; // Track wrong note for visual feedback
   double scrollProgress = 0.0; // Smooth scrolling progress 0.0 to 1.0
   Timer? _scrollTimer;
+  int correctNotesCount = 0; // For Lesson 5 accuracy
+
   
   // Audio (SoLoud)
   late SoLoud _soloud;
@@ -160,6 +162,7 @@ class _InteractivePianoLessonScreenState extends State<InteractivePianoLessonScr
          currentNoteIndex = 0;
          wrongNote = null;
          scrollProgress = 0.0;
+         correctNotesCount = 0;
        }
     });
 
@@ -348,6 +351,7 @@ class _InteractivePianoLessonScreenState extends State<InteractivePianoLessonScr
            setState(() {
              wrongNote = null;
              // highlightedKey = null; // Optional: clear hint if they got it
+             correctNotesCount++;
            });
            // Play user note logic is handled in _onKeyTapDown -> _startNote calling
         } else {
@@ -836,29 +840,76 @@ class _InteractivePianoLessonScreenState extends State<InteractivePianoLessonScr
   }
 
   Widget _buildCompletionScreen() {
+    // defaults
+    int stars = 3;
+    String title = 'LESSON COMPLETE!';
+    String subtitle = 'You\'ve mastered notes C, D, and E!';
+    double accuracy = 1.0;
+    
+    // Calculate accuracy for Perform mode
+    if (sequences.isNotEmpty && sequences[currentSequenceIndex].type == 'perform') {
+       final totalNotes = sequences[currentSequenceIndex].notes.where((n) => n != '-').length;
+       if (totalNotes > 0) {
+          accuracy = correctNotesCount / totalNotes;
+          if (accuracy >= 0.9) {
+             stars = 3;
+             title = 'PERFECT!';
+             subtitle = 'Amazing performance!';
+          } else if (accuracy >= 0.7) {
+             stars = 2;
+             title = 'GREAT JOB!';
+             subtitle = 'Keep practicing to get 3 stars!';
+          } else {
+             stars = 1;
+             title = 'COMPLETED';
+             subtitle = 'Try again for better accuracy!';
+          }
+       }
+    }
+
     return Scaffold(
       backgroundColor: const Color(0xFF0F172A),
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Container(
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: const Color(0xFF00D26A).withOpacity(0.1),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(Icons.stars, size: 80, color: Color(0xFF00D26A)),
+            // STARS
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: List.generate(3, (index) {
+                 // index 0, 1, 2
+                 // if stars = 1, only index 0 is full
+                 // if stars = 2, 0 and 1 are full
+                 bool isFull = index < stars;
+                 return Padding(
+                   padding: const EdgeInsets.symmetric(horizontal: 8),
+                   child: AnimatedScale(
+                     scale: 1.0,
+                     duration: Duration(milliseconds: 300 + (index * 200)),
+                     child: Icon(
+                       isFull ? Icons.star_rounded : Icons.star_outline_rounded,
+                       size: index == 1 ? 90 : 70, // Middle star bigger
+                       color: isFull ? const Color(0xFFFFC800) : Colors.white24,
+                     ),
+                   ),
+                 );
+              }),
             ),
             const SizedBox(height: 32),
-            const Text(
-              'LESSON COMPLETE!', 
-              style: TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.bold, letterSpacing: 2)
+            Text(
+              title, 
+              style: const TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.bold, letterSpacing: 2)
             ),
+            const SizedBox(height: 8),
+             if (sequences.isNotEmpty && sequences[currentSequenceIndex].type == 'perform')
+              Text(
+                'Accuracy: ${(accuracy * 100).toInt()}%',
+                style: const TextStyle(color: Color(0xFF58CC02), fontSize: 24, fontWeight: FontWeight.bold),
+              ),
             const SizedBox(height: 16),
-            const Text(
-              'You\'ve mastered notes C, D, and E!', 
-              style: TextStyle(color: Colors.white70, fontSize: 18)
+            Text(
+              subtitle, 
+              style: const TextStyle(color: Colors.white70, fontSize: 18)
             ),
             const SizedBox(height: 48),
             ElevatedButton(

@@ -214,6 +214,55 @@ class Command(BaseCommand):
                 time_signature=seq_data.get('time_signature', '4/4')
             )
 
+        # =====================
+        # LESSON 5: PERFORM HOT CROSS BUNS (Stars & Accuracy)
+        # =====================
+        lesson5, created = Lesson.objects.get_or_create(
+            module=module,
+            order=5,
+            defaults={
+                'title': 'Perform Hot Cross Buns',
+                'lesson_type': 'practice',
+            }
+        )
+        if created:
+            self.stdout.write(self.style.SUCCESS(f'Created lesson: {lesson5.title}'))
+        else:
+            self.stdout.write(f'Lesson already exists: {lesson5.title}')
+            # Clear existing data
+            lesson5.sequences.all().delete()
+
+        self.stdout.write(f'Seeding sequences for "{lesson5.title}"...')
+        
+        # Exact same notes as Lesson 3/4, but title/context is different
+        lesson5_sequences = [
+            {
+                "order": 1, 
+                "type": "perform", 
+                "notes": [
+                    "E", "-", "-", "-", 
+                    "E", "D", "C", "-", 
+                    "E", "D", "C", "-", 
+                    "C", "C", "D", "D", 
+                    "E", "D", "C", "-", 
+                    "E", "D", "C", "-", 
+                    "E", "D", "C", "-", 
+                    "C", "C", "D", "D", 
+                    "E", "D", "C", "-", 
+                ],
+                "time_signature": "4/4"
+            },
+        ]
+
+        for seq_data in lesson5_sequences:
+            PracticeSequence.objects.create(
+                lesson=lesson5,
+                order=seq_data['order'],
+                sequence_type=seq_data['type'],
+                notes=seq_data['notes'],
+                time_signature=seq_data.get('time_signature', '4/4')
+            )
+
         self.stdout.write(self.style.SUCCESS(f'Successfully seeded sequences for all lessons.'))
         
         self.stdout.write('')
