@@ -263,11 +263,67 @@ class Command(BaseCommand):
                 time_signature=seq_data.get('time_signature', '4/4')
             )
 
+
+
+        # ==========================================
+        # MODULE 2: LEVEL 2
+        # ==========================================
+        module2, created = Module.objects.get_or_create(
+            order=2,
+            defaults={
+                'title': 'Level 2',
+                'description': 'Advanced Patterns - Challenge your memory and rhythm',
+            }
+        )
+        if created:
+            self.stdout.write(self.style.SUCCESS(f'Created module: {module2.title}'))
+        else:
+            self.stdout.write(f'Module already exists: {module2.title}')
+
+        # =====================
+        # LEVEL 2 - LESSON 1: PATTERNS (Simon Says)
+        # =====================
+        l2_lesson1, created = Lesson.objects.get_or_create(
+            module=module2,
+            order=1,
+            defaults={
+                'title': 'Memorize the melody',
+                'lesson_type': 'theory', # Reusing 'theory' type implies 'Listen' default in frontend map often, or explicitly sequence type
+            }
+        )
+        if created:
+            self.stdout.write(self.style.SUCCESS(f'Created lesson: {l2_lesson1.title}'))
+        else:
+            self.stdout.write(f'Lesson already exists: {l2_lesson1.title}')
+            l2_lesson1.sequences.all().delete()
+
+        self.stdout.write(f'Seeding sequences for "{l2_lesson1.title}"...')
+        
+        l2_lesson1_sequences = [
+            {"order": 1, "notes": ["D", "D", "D", "C"]},
+            {"order": 2, "notes": ["D", "D", "D", "C", "D"]},
+            {"order": 3, "notes": ["D", "D", "D", "C", "D", "D"]},
+            {"order": 4, "notes": ["D", "D", "D", "C", "D", "D", "D"]},
+            {"order": 5, "notes": ["D", "D", "D", "C", "D", "D", "D", "C"]},
+        ]
+
+        for seq_data in l2_lesson1_sequences:
+            PracticeSequence.objects.create(
+                lesson=l2_lesson1,
+                order=seq_data['order'],
+                sequence_type='listen', # Explicitly Listen mode 
+                notes=seq_data['notes']
+            )
+
         self.stdout.write(self.style.SUCCESS(f'Successfully seeded sequences for all lessons.'))
         
         self.stdout.write('')
         self.stdout.write('Summary:')
-        self.stdout.write(f'  - Module: {module.title}')
-        self.stdout.write(f'  - Lesson 1: {lesson.title} ({len(lesson1_sequences)} seqs)')
-        self.stdout.write(f'  - Lesson 2: {lesson2.title} ({len(lesson2_sequences)} seqs)')
-        self.stdout.write(f'  - Lesson 3: {lesson3.title} ({len(lesson3_sequences)} seqs)')
+        self.stdout.write(f'  - Module 1: {module.title}')
+        self.stdout.write(f'    - Lesson 1: {lesson.title}')
+        self.stdout.write(f'    - Lesson 2: {lesson2.title}')
+        self.stdout.write(f'    - Lesson 3: {lesson3.title}')
+        self.stdout.write(f'    - Lesson 4: {lesson4.title}')
+        self.stdout.write(f'    - Lesson 5: {lesson5.title}')
+        self.stdout.write(f'  - Module 2: {module2.title}')
+        self.stdout.write(f'    - Lesson 1: {l2_lesson1.title} ({len(l2_lesson1_sequences)} seqs)')
