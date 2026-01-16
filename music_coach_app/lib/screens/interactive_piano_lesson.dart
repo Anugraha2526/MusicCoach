@@ -217,7 +217,7 @@ class _InteractivePianoLessonScreenState extends State<InteractivePianoLessonScr
     }
     
     // Only for Read modes
-    _startDurationTimer(note);
+    // _startDurationTimer(note); // REMOVED: Managed explicitly in onKeyTapDown to avoid auto-play triggering input
   }
 
   void _stopNote(String note) {
