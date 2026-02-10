@@ -315,6 +315,74 @@ class Command(BaseCommand):
                 notes=seq_data['notes']
             )
 
+        # =====================
+        # LEVEL 2 - LESSON 2: PLAY AT YOUR OWN PACE (Work Song - Hozier)
+        # =====================
+        l2_lesson2, created = Lesson.objects.get_or_create(
+            module=module2,
+            order=2,
+            defaults={
+                'title': 'Play at your own pace',
+                'lesson_type': 'practice',
+            }
+        )
+        if created:
+            self.stdout.write(self.style.SUCCESS(f'Created lesson: {l2_lesson2.title}'))
+        else:
+            self.stdout.write(f'Lesson already exists: {l2_lesson2.title}')
+            l2_lesson2.sequences.all().delete()
+
+        self.stdout.write(f'Seeding sequences for "{l2_lesson2.title}"...')
+        
+        # Work Song Sequence
+        # D-- -D-D -D-C -DD- DC-- -DD- DC-- -DD- ---- -D-D -D-C -DD-
+        l2_lesson2_sequences = [
+             {
+                "order": 1, 
+                "type": "play", 
+                "notes": [
+                    # 1. D---
+                    "D", "-", "-", "-", 
+                    # 2. ----
+                    "-", "-", "-", "-", 
+                    # 3. -D-C
+                    "-", "D", "-", "D", 
+                    # 4. -D-C
+                    "-", "D", "-", "C", 
+                    # 5. -DD-
+                    "-", "D", "D", "-", 
+                    # 6. DC--
+                    "D", "C", "-", "-", 
+                    # 7. -DD-
+                    "-", "D", "D", "-", 
+                    # 8. DC--
+                    "D", "C", "-", "-", 
+                    # 9. -DD-
+                    "-", "D", "D", "-", 
+                    # 10. ----
+                    "-", "-", "-", "-", 
+                    # 11. -D-D
+                    "-", "D", "-", "D", 
+                    # 12. -D-C
+                    "-", "D", "-", "C", 
+                    # 13. -DD-
+                    "-", "D", "D", "-", 
+                    # 14. ----
+                    "-", "-", "-", "-", 
+                ],
+                "time_signature": "4/4"
+            },
+        ]
+
+        for seq_data in l2_lesson2_sequences:
+            PracticeSequence.objects.create(
+                lesson=l2_lesson2,
+                order=seq_data['order'],
+                sequence_type=seq_data['type'],
+                notes=seq_data['notes'],
+                time_signature=seq_data.get('time_signature', '4/4')
+            )
+
         self.stdout.write(self.style.SUCCESS(f'Successfully seeded sequences for all lessons.'))
         
         self.stdout.write('')
