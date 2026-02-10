@@ -67,7 +67,9 @@ flutter:
   uses-material-design: true
   assets:
     - assets/icons/
-    - assets/audio/
+    - assets/audio/piano_notes/
+    - assets/audio/piano_level1/
+    - assets/audio/piano_level2/
 
 
 flutter_launcher_icons:
