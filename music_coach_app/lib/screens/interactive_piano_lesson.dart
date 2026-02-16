@@ -10,6 +10,7 @@ import '../widgets/lesson/notation_widget.dart';
 import '../widgets/lesson/draggable_note_option.dart';
 import '../widgets/lesson/moving_notation_widget.dart';
 import '../widgets/lesson/colored_piano_keyboard.dart';
+import '../widgets/lesson/colored_notation_widget.dart';
 
 /// Interactive piano lesson screen that forces landscape mode.
 /// Implements a "Simon Says" style play-and-follow game.
@@ -851,19 +852,22 @@ class _InteractivePianoLessonScreenState extends State<InteractivePianoLessonScr
             _buildHeader(currentSeq),
             
             Expanded(
-              child: Column(
+               child: Column(
                 children: [
-                   // Notation Layout (Treble staff)
+                   // Notation Layout (Treble staff with colored notes for 'read' mode)
                    if (currentSeq.type == 'read') 
-                      Padding(
-                        padding: const EdgeInsets.only(top: 8),
-                        child: ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: 400),
-                          child: NotationView(
-                             notes: currentSeq.notes,
-                             completedIndex: currentInput.length,
-                             currentProgress: currentReadingProgress,
-                           ),
+                      Expanded(
+                        flex: 2,
+                        child: Center(
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                            child: ColoredNotationWidget(
+                              notes: currentSeq.notes,
+                              completedIndex: currentInput.length,
+                              currentProgress: currentReadingProgress,
+                              timeSignature: currentSeq.timeSignature,
+                            ),
+                          ),
                         ),
                       )
                    else
@@ -871,29 +875,40 @@ class _InteractivePianoLessonScreenState extends State<InteractivePianoLessonScr
                    
                    // Main Piano Area
                    Expanded(
-                     flex: 4,
+                     flex: 3,
                      child: Center(
                        child: SizedBox(
-                         width: screenWidth * pianoWidthMultiplier,
-                         height: 110,
-                         child: PianoKeyboard(
-                           highlightedKey: currentSeq.type == 'learn' || isPlayingSequence ? highlightedKey : null,
-                           onNoteDown: _onKeyTapDown,
-                           onNoteUp: _onKeyTapUp,
-                           onNoteDrop: currentSeq.type == 'identify' ? _onNoteDrop : null,
-                           showQuestionMarks: currentSeq.type == 'identify',
-                           showLabels: true,
-                           identifiedNotes: identifiedNotes,
-                         ),
+                         width: currentSeq.type == 'read' ? screenWidth * 0.45 : screenWidth * pianoWidthMultiplier,
+                         height: currentSeq.type == 'read' ? 140 : 110,
+                         child: currentSeq.type == 'read'
+                             ? ColoredPianoKeyboard(
+                                 highlightedKey: highlightedKey,
+                                 onNoteDown: _onKeyTapDown,
+                                 onNoteUp: _onKeyTapUp,
+                                 currentNote: currentInput.length < currentSeq.notes.length 
+                                     ? currentSeq.notes[currentInput.length] 
+                                     : null,
+                                 wrongNote: null,
+                               )
+                             : PianoKeyboard(
+                                 highlightedKey: currentSeq.type == 'learn' || isPlayingSequence ? highlightedKey : null,
+                                 onNoteDown: _onKeyTapDown,
+                                 onNoteUp: _onKeyTapUp,
+                                 onNoteDrop: currentSeq.type == 'identify' ? _onNoteDrop : null,
+                                 showQuestionMarks: currentSeq.type == 'identify',
+                                 showLabels: true,
+                                 identifiedNotes: identifiedNotes,
+                               ),
                        ),
                      ),
                    ),
 
-                   // Mode-specific supplementary UI (Bottom) - Minimap etc
-                   Padding(
-                     padding: const EdgeInsets.only(bottom: 12),
-                     child: _buildSupplementaryUI(currentSeq),
-                   ),
+                   // Mode-specific supplementary UI (Bottom) - Minimap etc (skip for 'read' mode)
+                   if (currentSeq.type != 'read')
+                     Padding(
+                       padding: const EdgeInsets.only(bottom: 12),
+                       child: _buildSupplementaryUI(currentSeq),
+                     ),
                 ],
               ),
             ),

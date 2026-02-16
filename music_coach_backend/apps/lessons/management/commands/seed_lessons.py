@@ -383,6 +383,50 @@ class Command(BaseCommand):
                 time_signature=seq_data.get('time_signature', '4/4')
             )
 
+        # =====================
+        # LEVEL 2 - LESSON 3: COLORED NOTATION
+        # =====================
+        l2_lesson3, created = Lesson.objects.get_or_create(
+            module=module2,
+            order=3,
+            defaults={
+                'title': 'Colored Notation',
+                'lesson_type': 'practice',
+            }
+        )
+        if created:
+            self.stdout.write(self.style.SUCCESS(f'Created lesson: {l2_lesson3.title}'))
+        else:
+            self.stdout.write(f'Lesson already exists: {l2_lesson3.title}')
+            l2_lesson3.sequences.all().delete()
+
+        self.stdout.write(f'Seeding sequences for "{l2_lesson3.title}"...')
+        
+        # Two simple units with colored notation
+        l2_lesson3_sequences = [
+            {
+                "order": 1, 
+                "type": "read", 
+                "notes": ["E", "D", "C", "D"],
+                "time_signature": "4/4"
+            },
+            {
+                "order": 2, 
+                "type": "read", 
+                "notes": ["E", "E", "D", "C"],
+                "time_signature": "4/4"
+            },
+        ]
+
+        for seq_data in l2_lesson3_sequences:
+            PracticeSequence.objects.create(
+                lesson=l2_lesson3,
+                order=seq_data['order'],
+                sequence_type=seq_data['type'],
+                notes=seq_data['notes'],
+                time_signature=seq_data.get('time_signature', '4/4')
+            )
+
         self.stdout.write(self.style.SUCCESS(f'Successfully seeded sequences for all lessons.'))
         
         self.stdout.write('')
@@ -395,3 +439,5 @@ class Command(BaseCommand):
         self.stdout.write(f'    - Lesson 5: {lesson5.title}')
         self.stdout.write(f'  - Module 2: {module2.title}')
         self.stdout.write(f'    - Lesson 1: {l2_lesson1.title} ({len(l2_lesson1_sequences)} seqs)')
+        self.stdout.write(f'    - Lesson 2: {l2_lesson2.title} ({len(l2_lesson2_sequences)} seq)')
+        self.stdout.write(f'    - Lesson 3: {l2_lesson3.title} ({len(l2_lesson3_sequences)} seqs)')
