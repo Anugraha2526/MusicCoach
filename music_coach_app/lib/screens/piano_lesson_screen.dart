@@ -84,7 +84,10 @@ class _PianoLessonScreenState extends State<PianoLessonScreen>
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (context) => InteractivePianoLessonScreen(lessonId: backendLesson.id),
+              builder: (context) => InteractivePianoLessonScreen(
+                lessonId: backendLesson!.id,
+                lessonTitle: backendLesson.title,
+              ),
             ),
           );
         } else {

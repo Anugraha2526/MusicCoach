@@ -16,10 +16,12 @@ import '../widgets/lesson/colored_notation_widget.dart';
 /// Implements a "Simon Says" style play-and-follow game.
 class InteractivePianoLessonScreen extends StatefulWidget {
   final int lessonId;
+  final String? lessonTitle;
 
   const InteractivePianoLessonScreen({
     super.key,
     required this.lessonId,
+    this.lessonTitle,
   });
 
   @override
@@ -1061,7 +1063,10 @@ class _InteractivePianoLessonScreenState extends State<InteractivePianoLessonScr
     final safeIndex = (currentSequenceIndex >= sequences.length) ? sequences.length - 1 : currentSequenceIndex;
     final lastSeq = sequences[safeIndex];
     
-    if (sequences.isNotEmpty && lastSeq.type == 'perform' && widget.lessonId != 4) {
+    // Check if it's a "Rehearsal" lesson either by title or legacy ID check
+    final bool isRehearsal = (widget.lessonTitle?.contains('Rehearsal') ?? false) || widget.lessonId == 4 || (widget.lessonTitle == 'Rehearsal');
+
+    if (sequences.isNotEmpty && lastSeq.type == 'perform' && !isRehearsal) {
        final totalNotes = lastSeq.notes.where((n) => n != '-').length;
        if (totalNotes > 0) {
           accuracy = correctNotesCount / totalNotes;
@@ -1087,7 +1092,8 @@ class _InteractivePianoLessonScreenState extends State<InteractivePianoLessonScr
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // STARS
+            // STARS (Hide stars for Rehearsal too if desired, or keep them but always full/empty? Usually hide if no accuracy)
+            if (!isRehearsal)
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: List.generate(3, (index) {
@@ -1109,17 +1115,21 @@ class _InteractivePianoLessonScreenState extends State<InteractivePianoLessonScr
                  );
               }),
             ),
-            const SizedBox(height: 32),
+            if (!isRehearsal) const SizedBox(height: 32),
+            
             Text(
               title, 
               style: const TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.bold, letterSpacing: 2)
             ),
             const SizedBox(height: 8),
-             if (sequences.isNotEmpty && lastSeq.type == 'perform' && widget.lessonId != 4)
+            
+             // FIX: Use !isRehearsal here instead of widget.lessonId != 4
+             if (sequences.isNotEmpty && lastSeq.type == 'perform' && !isRehearsal)
               Text(
                 'Accuracy: ${(accuracy * 100).toInt()}%',
                 style: const TextStyle(color: Color(0xFF58CC02), fontSize: 24, fontWeight: FontWeight.bold),
               ),
+              
             const SizedBox(height: 16),
             Text(
               subtitle, 
