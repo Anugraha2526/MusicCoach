@@ -427,6 +427,78 @@ class Command(BaseCommand):
                 time_signature=seq_data.get('time_signature', '4/4')
             )
 
+        # =====================
+        # LEVEL 2 - LESSON 4: REHEARSAL (Work Song - Continuous)
+        # =====================
+        l2_lesson4, created = Lesson.objects.get_or_create(
+            module=module2,
+            order=4,
+            defaults={
+                'title': 'Rehearsal',
+                'lesson_type': 'practice',
+            }
+        )
+        if created:
+            self.stdout.write(self.style.SUCCESS(f'Created lesson: {l2_lesson4.title}'))
+        else:
+            self.stdout.write(f'Lesson already exists: {l2_lesson4.title}')
+            l2_lesson4.sequences.all().delete()
+
+        self.stdout.write(f'Seeding sequences for "{l2_lesson4.title}"...')
+        
+        # Work Song Sequence (Perform Mode - Continuous Play)
+        work_song_notes = [
+            "D", "-", "-", "-", 
+            "-", "-", "-", "-", 
+            "-", "D", "-", "D", 
+            "-", "D", "-", "C", 
+            "-", "D", "D", "-", 
+            "D", "C", "-", "-", 
+            "-", "D", "D", "-", 
+            "D", "C", "-", "-", 
+            "-", "D", "D", "-", 
+            "-", "-", "-", "-", 
+            "-", "D", "-", "D", 
+            "-", "D", "-", "C", 
+            "-", "D", "D", "-", 
+            "-", "-", "-", "-", 
+        ]
+
+        PracticeSequence.objects.create(
+            lesson=l2_lesson4,
+            order=1,
+            sequence_type='perform', 
+            notes=work_song_notes,
+            time_signature='4/4'
+        )
+
+        # =====================
+        # LEVEL 2 - LESSON 5: PERFORM WORK SONG (Scored)
+        # =====================
+        l2_lesson5, created = Lesson.objects.get_or_create(
+            module=module2,
+            order=5,
+            defaults={
+                'title': 'Perform Work Song',
+                'lesson_type': 'practice',
+            }
+        )
+        if created:
+            self.stdout.write(self.style.SUCCESS(f'Created lesson: {l2_lesson5.title}'))
+        else:
+            self.stdout.write(f'Lesson already exists: {l2_lesson5.title}')
+            l2_lesson5.sequences.all().delete()
+
+        self.stdout.write(f'Seeding sequences for "{l2_lesson5.title}"...')
+        
+        PracticeSequence.objects.create(
+            lesson=l2_lesson5,
+            order=1,
+            sequence_type='perform', 
+            notes=work_song_notes, # Same notes as lesson 4
+            time_signature='4/4'
+        )
+
         self.stdout.write(self.style.SUCCESS(f'Successfully seeded sequences for all lessons.'))
         
         self.stdout.write('')
@@ -441,3 +513,5 @@ class Command(BaseCommand):
         self.stdout.write(f'    - Lesson 1: {l2_lesson1.title} ({len(l2_lesson1_sequences)} seqs)')
         self.stdout.write(f'    - Lesson 2: {l2_lesson2.title} ({len(l2_lesson2_sequences)} seq)')
         self.stdout.write(f'    - Lesson 3: {l2_lesson3.title} ({len(l2_lesson3_sequences)} seqs)')
+        self.stdout.write(f'    - Lesson 4: {l2_lesson4.title}')
+        self.stdout.write(f'    - Lesson 5: {l2_lesson5.title}')
