@@ -41,6 +41,9 @@ dependencies:
   shared_preferences: ^2.2.1 
   flutter_svg: ^2.0.9
   cached_network_image: ^3.3.1
+  pitch_detector_dart: ^0.0.7
+  flutter_audio_capture: ^1.1.0
+  permission_handler: ^11.3.1
   
 
 dev_dependencies:
@@ -70,6 +73,7 @@ flutter:
     - assets/audio/piano_notes/
     - assets/audio/piano_level1/
     - assets/audio/piano_level2/
+    - assets/audio/guitar_notes/
 
 
 flutter_launcher_icons:
