@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:typed_data';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
-import 'package:audioplayers/audioplayers.dart';
+import 'package:flutter_soloud/flutter_soloud.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter_audio_capture/flutter_audio_capture.dart';
 import 'package:pitch_detector_dart/pitch_detector.dart';
@@ -36,8 +36,10 @@ class GuitarTunerScreen extends StatefulWidget {
 
 class _GuitarTunerScreenState extends State<GuitarTunerScreen>
     with SingleTickerProviderStateMixin {
-  // ── Audio Players for reference tones ──────────────────────────────────────
-  final List<AudioPlayer> _audioPlayers = [];
+  // ── Audio Players for reference tones (SoLoud) ─────────────────────────────
+  late SoLoud _soloud;
+  final Map<int, AudioSource> _noteSources = {};
+  SoundHandle? _currentSoundHandle;
   final List<String> _notes = ['E2', 'A2', 'D3', 'G3', 'B3', 'E4'];
   final List<double> _frequencies = [
     82.41,  // E2
@@ -73,7 +75,7 @@ class _GuitarTunerScreenState extends State<GuitarTunerScreen>
   @override
   void initState() {
     super.initState();
-    _initAudioPlayers();
+    _initAudioPlayers(); // async fire-and-forget; players ready before first tap
 
     // Drive smooth needle repaint at display refresh rate
     _needleController = AnimationController(
@@ -94,9 +96,20 @@ class _GuitarTunerScreenState extends State<GuitarTunerScreen>
     }
   }
 
-  void _initAudioPlayers() {
-    for (int i = 0; i < 6; i++) {
-      _audioPlayers.add(AudioPlayer());
+  Future<void> _initAudioPlayers() async {
+    try {
+      _soloud = SoLoud.instance;
+      if (!_soloud.isInitialized) {
+        await _soloud.init(bufferSize: 512);
+      }
+      for (int i = 0; i < 6; i++) {
+        _noteSources[i] = await _soloud.loadAsset(
+          'assets/audio/guitar_notes/${_notes[i]}.wav',
+          mode: LoadMode.memory,
+        );
+      }
+    } catch (e) {
+      debugPrint('SoLoud init error: $e');
     }
   }
 
@@ -178,13 +191,18 @@ class _GuitarTunerScreenState extends State<GuitarTunerScreen>
     _needleController.removeListener(_smoothTick);
     _needleController.dispose();
     _stopListening();
-    for (final p in _audioPlayers) {
-      p.dispose();
+    for (final source in _noteSources.values) {
+      _soloud.disposeSource(source);
     }
+    // We optionally deinit the whole engine, or leave it alive for other screens.
+    // Piano lesson de-inits, so we will to prevent memory leaks if not reused soon.
+    try {
+      _soloud.deinit();
+    } catch (_) {}
     super.dispose();
   }
 
-  void _playNote(int index) {
+  void _playNote(int index) async {
     setState(() {
       _selectedStringIndex = index;
       _isTuned = false;
@@ -192,11 +210,18 @@ class _GuitarTunerScreenState extends State<GuitarTunerScreen>
       _cents = 0.0;
       _smoothCents = 0.0;
     });
-    final source = AssetSource('audio/guitar_notes/${_notes[index]}.mp3');
-    _audioPlayers[index]
-        .stop()
-        .then((_) => _audioPlayers[index].play(source))
-        .catchError((e) => debugPrint('Audio error $index: $e'));
+    
+    // Stop the previous note if it's still playing
+    if (_currentSoundHandle != null) {
+      try {
+        _soloud.stop(_currentSoundHandle!);
+      } catch (_) {}
+    }
+
+    // Play the new note
+    if (_noteSources.containsKey(index)) {
+      _currentSoundHandle = await _soloud.play(_noteSources[index]!, volume: 1.0);
+    }
   }
 
   @override
