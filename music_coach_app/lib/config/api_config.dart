@@ -5,8 +5,8 @@
 class ApiConfig {
   // TODO: Move this to environment variables or config file for production
   // For development, update this to your local IP address
-  // static const String baseUrl = "http://192.168.1.72:8000";
-  static const String baseUrl = "http://127.0.0.1:8000";
+  static const String baseUrl = "http://192.168.1.72:8000";
+  // static const String baseUrl = "http://127.0.0.1:8000";
   
   // API endpoints
   static const String accountsBase = "$baseUrl/api/accounts";
