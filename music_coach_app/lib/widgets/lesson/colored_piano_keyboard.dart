@@ -114,7 +114,7 @@ class ColoredPianoKeyboard extends StatelessWidget {
   }
 }
 
-class _ColoredWhiteKey extends StatelessWidget {
+class _ColoredWhiteKey extends StatefulWidget {
   final String note;
   final double width;
   final bool isPressed;
@@ -132,28 +132,66 @@ class _ColoredWhiteKey extends StatelessWidget {
   });
 
   @override
+  State<_ColoredWhiteKey> createState() => _ColoredWhiteKeyState();
+}
+
+class _ColoredWhiteKeyState extends State<_ColoredWhiteKey> {
+  bool _isTouchPressed = false;
+
+  void _handleTapDown() {
+    setState(() => _isTouchPressed = true);
+    widget.onTapDown();
+  }
+
+  void _handleTapUp() {
+    setState(() => _isTouchPressed = false);
+    widget.onTapUp();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final bool effectiveIsPressed = widget.isPressed || _isTouchPressed;
+    
     return GestureDetector(
-      onTapDown: (_) => onTapDown(),
-      onTapUp: (_) => onTapUp(),
-      onTapCancel: onTapUp,
+      onTapDown: (_) => _handleTapDown(),
+      onTapUp: (_) => _handleTapUp(),
+      onTapCancel: _handleTapUp,
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 100),
-        width: width,
+        duration: const Duration(milliseconds: 150),
+        curve: Curves.easeOutCubic,
+        width: widget.width,
         height: double.infinity,
-        margin: const EdgeInsets.symmetric(horizontal: 2), // 2px margin each side = 4px total gap per key
+        margin: EdgeInsets.only(
+          left: 2, 
+          right: 2, 
+          top: effectiveIsPressed ? 4 : 0, 
+        ), // 2px margin each side = 4px total gap per key
         decoration: BoxDecoration(
-          color: isPressed ? const Color(0xFFF1F5F9) : Colors.white,
+          color: Colors.white,
           border: Border.all(
-            color: Colors.black.withOpacity(0.1),
+            color: Colors.black.withOpacity(0.08),
             width: 1,
           ),
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: const BorderRadius.only(
+            bottomLeft: Radius.circular(8),
+            bottomRight: Radius.circular(8),
+          ),
+          gradient: effectiveIsPressed 
+            ? const LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [Color(0xFFF1F5F9), Color(0xFFE2E8F0)],
+              )
+            : const LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [Colors.white, Color(0xFFF8FAFC)],
+              ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(isPressed ? 0.05 : 0.1),
-              offset: const Offset(0, 4),
-              blurRadius: 4,
+              color: Colors.black.withOpacity(effectiveIsPressed ? 0.02 : 0.12),
+              offset: Offset(0, effectiveIsPressed ? 2 : 8),
+              blurRadius: effectiveIsPressed ? 2 : 10,
             ),
           ],
         ),
@@ -164,9 +202,9 @@ class _ColoredWhiteKey extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.only(bottom: 16),
               child: Text(
-                note,
+                widget.note,
                 style: TextStyle(
-                  color: color,
+                  color: widget.color,
                   fontSize: 28,
                   fontWeight: FontWeight.bold,
                 ),
@@ -175,15 +213,15 @@ class _ColoredWhiteKey extends StatelessWidget {
 
             // Colored shadow highlight at bottom
             Container(
-              width: width * 0.7,
+              width: widget.width * 0.7,
               height: 8,
               margin: const EdgeInsets.only(bottom: 4),
               decoration: BoxDecoration(
-                color: color.withOpacity(0.3),
+                color: widget.color.withOpacity(0.3),
                 borderRadius: BorderRadius.circular(4),
                 boxShadow: [
                   BoxShadow(
-                    color: color.withOpacity(0.4),
+                    color: widget.color.withOpacity(0.4),
                     blurRadius: 8,
                     spreadRadius: 1,
                   ),
@@ -191,18 +229,18 @@ class _ColoredWhiteKey extends StatelessWidget {
               ),
             ),
 
-            // Pressed indicator (brighter when pressed)
-            if (isPressed)
+            // Pressed indicator (brighter when highlighted by lesson)
+            if (widget.isPressed)
               Container(
-                width: width * 0.7,
+                width: widget.width * 0.7,
                 height: 8,
                 margin: const EdgeInsets.only(bottom: 4),
                 decoration: BoxDecoration(
-                  color: color.withOpacity(0.8),
+                  color: widget.color.withOpacity(0.8),
                   borderRadius: BorderRadius.circular(4),
                   boxShadow: [
                     BoxShadow(
-                      color: color.withOpacity(0.6),
+                      color: widget.color.withOpacity(0.6),
                       blurRadius: 12,
                       spreadRadius: 2,
                     ),
@@ -232,19 +270,22 @@ class _BlackKey extends StatelessWidget {
       height: height,
       decoration: BoxDecoration(
         color: Colors.black,
-        borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: const Color(0xFF1E1E1E), width: 1),
+        borderRadius: const BorderRadius.only(
+          bottomLeft: Radius.circular(6),
+          bottomRight: Radius.circular(6),
+        ),
+        border: Border.all(color: const Color(0xFF1E1E1E), width: 1.5),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.5),
-            offset: const Offset(2, 2),
-            blurRadius: 4,
+            color: Colors.black.withOpacity(0.6),
+            offset: const Offset(0, 6),
+            blurRadius: 8,
           ),
         ],
         gradient: const LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [Color(0xFF333333), Colors.black],
+          colors: [Color(0xFF444444), Color(0xFF0A0A0A)],
         ),
       ),
     );
