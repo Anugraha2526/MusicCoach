@@ -76,6 +76,29 @@ class _InteractivePianoLessonScreenState extends State<InteractivePianoLessonScr
     'E': const Color(0xFF00D9A5),
   };
 
+  // Helper to determine which keys to show based on the sequences
+  List<String> get _requiredKeys {
+    if (sequences.isEmpty) return ['C', 'D', 'E']; // Default
+    
+    // Check if any note goes beyond C, D, E
+    bool needsFullOctave = false;
+    for (var seq in sequences) {
+      for (var note in seq.notes) {
+        if (note != '-' && !['C', 'D', 'E'].contains(note)) {
+          needsFullOctave = true;
+          break;
+        }
+      }
+      if (needsFullOctave) break;
+    }
+
+    if (needsFullOctave) {
+      return ['C', 'D', 'E', 'F', 'G', 'A', 'B'];
+    } else {
+      return ['C', 'D', 'E'];
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -830,6 +853,7 @@ class _InteractivePianoLessonScreenState extends State<InteractivePianoLessonScr
                                 ? currentSeq.notes[currentNoteIndex] 
                                 : null,
                             wrongNote: wrongNote,
+                            visibleNotes: _requiredKeys,
                           ),
                         ),
                       ),
@@ -844,8 +868,18 @@ class _InteractivePianoLessonScreenState extends State<InteractivePianoLessonScr
     }
     
     // Original layout for other lesson types
-    final pianoWidthMultiplier = (currentSeq.type == 'learn' || currentSeq.type == 'identify') ? 0.22 : 0.32;
+    // Dynamic width based on the number of keys to display
+    final int keyCount = _requiredKeys.length;
+    double pianoWidthMultiplier = (currentSeq.type == 'learn' || currentSeq.type == 'identify') ? 0.22 : 0.32;
+    // Scale up for full octave
+    if (keyCount > 3) {
+      pianoWidthMultiplier = (currentSeq.type == 'learn' || currentSeq.type == 'identify') ? 0.45 : 0.65;
+    }
     
+    // Scale height slightly for bigger keyboards to maintain aspect ratio
+    final double basePianoHeight = currentSeq.type == 'read' ? 140 : 120;
+    final double finalPianoHeight = keyCount > 3 ? basePianoHeight + 20 : basePianoHeight;
+
     return Scaffold(
       backgroundColor: const Color(0xFF1E293B), 
       body: SafeArea(
@@ -881,7 +915,7 @@ class _InteractivePianoLessonScreenState extends State<InteractivePianoLessonScr
                      child: Center(
                        child: SizedBox(
                          width: currentSeq.type == 'read' ? screenWidth * 0.45 : screenWidth * pianoWidthMultiplier,
-                         height: currentSeq.type == 'read' ? 140 : 110,
+                         height: finalPianoHeight,
                          child: currentSeq.type == 'read'
                              ? ColoredPianoKeyboard(
                                  highlightedKey: highlightedKey,
@@ -891,6 +925,7 @@ class _InteractivePianoLessonScreenState extends State<InteractivePianoLessonScr
                                      ? currentSeq.notes[currentInput.length] 
                                      : null,
                                  wrongNote: null,
+                                 visibleNotes: _requiredKeys,
                                )
                              : PianoKeyboard(
                                  highlightedKey: currentSeq.type == 'learn' || isPlayingSequence ? highlightedKey : null,
@@ -900,6 +935,7 @@ class _InteractivePianoLessonScreenState extends State<InteractivePianoLessonScr
                                  showQuestionMarks: currentSeq.type == 'identify',
                                  showLabels: true,
                                  identifiedNotes: identifiedNotes,
+                                 visibleNotes: _requiredKeys,
                                ),
                        ),
                      ),

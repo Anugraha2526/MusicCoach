@@ -7,7 +7,7 @@ class PianoKeyboard extends StatelessWidget {
   final Function(String, String)? onNoteDrop; // Callback when note dropped (targetKey, droppedNote)
   final bool showLabels;
   final bool showQuestionMarks; // If true, labels are '?' (for Identify mode)
-  final Set<String> visibleKeys; // Which keys to show (default all ['C', 'D', 'E'])
+  final List<String> visibleNotes; // Which keys to show
   final Set<String> identifiedNotes; // Notes correctly dropped in Identify mode
 
   const PianoKeyboard({
@@ -18,7 +18,7 @@ class PianoKeyboard extends StatelessWidget {
     this.onNoteDrop,
     this.showLabels = true,
     this.showQuestionMarks = false,
-    this.visibleKeys = const {'C', 'D', 'E'},
+    this.visibleNotes = const ['C', 'D', 'E'],
     this.identifiedNotes = const {},
   });
 
@@ -28,8 +28,10 @@ class PianoKeyboard extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final totalWidth = constraints.maxWidth;
-        // Account for margins: 3 keys * 4px margin (2-left, 2-right) = 12px
-        final whiteKeyWidth = (totalWidth - 12) / 3; 
+        final whiteKeyCount = visibleNotes.length;
+        if (whiteKeyCount == 0) return const SizedBox();
+
+        final whiteKeyWidth = (totalWidth / whiteKeyCount) - 4; // -4 for margins
         final blackKeyWidth = whiteKeyWidth * 0.55; 
         final blackKeyHeight = constraints.maxHeight * 0.45;
 
@@ -39,33 +41,41 @@ class PianoKeyboard extends StatelessWidget {
           children: [
             // --- White Keys ---
             Row(
-              children: [
-                _buildWhiteKey('C', whiteKeyWidth),
-                _buildWhiteKey('D', whiteKeyWidth, isMiddle: true),
-                _buildWhiteKey('E', whiteKeyWidth),
-              ],
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: visibleNotes.map((note) {
+                 return _buildWhiteKey(note, whiteKeyWidth);
+              }).toList(),
             ),
 
-            // --- Black Keys (Decorative) ---
-            // C# between C and D
-            Positioned(
-              left: (whiteKeyWidth + 4) - (blackKeyWidth / 2),
-              top: 0,
-              child: _BlackKey(width: blackKeyWidth, height: blackKeyHeight),
-            ),
-            // D# between D and E
-            Positioned(
-              left: ((whiteKeyWidth + 4) * 2) - (blackKeyWidth / 2),
-              top: 0,
-              child: _BlackKey(width: blackKeyWidth, height: blackKeyHeight),
-            ),
+            // --- Black Keys ---
+            ...visibleNotes.asMap().entries.map((entry) {
+              final index = entry.key;
+              final note = entry.value;
+              
+              if (index >= visibleNotes.length - 1) return const SizedBox.shrink();
+
+              if (_shouldHaveBlackKeyAfter(note)) {
+                final leftPos = ((index + 1) * (whiteKeyWidth + 4)) - (blackKeyWidth / 2);
+                
+                return Positioned(
+                  left: leftPos,
+                  top: 0,
+                  child: _BlackKey(width: blackKeyWidth, height: blackKeyHeight),
+                );
+              }
+              return const SizedBox.shrink();
+            }),
           ],
         );
       },
     );
   }
 
-  Widget _buildWhiteKey(String note, double width, {bool isMiddle = false}) {
+  bool _shouldHaveBlackKeyAfter(String note) {
+    return ['C', 'D', 'F', 'G', 'A'].contains(note);
+  }
+
+  Widget _buildWhiteKey(String note, double width) {
     // If showQuestionMarks is true (Identify mode), only show '?' if NOT identified yet
     final isIdentified = identifiedNotes.contains(note);
     final label = showQuestionMarks 
@@ -86,7 +96,7 @@ class PianoKeyboard extends StatelessWidget {
   }
 }
 
-class _WhiteKey extends StatelessWidget {
+class _WhiteKey extends StatefulWidget {
   final String label;
   final double width;
   final bool isPressed;
@@ -108,31 +118,49 @@ class _WhiteKey extends StatelessWidget {
   });
 
   @override
+  State<_WhiteKey> createState() => _WhiteKeyState();
+}
+
+class _WhiteKeyState extends State<_WhiteKey> {
+  bool _isTouchPressed = false;
+
+  void _handleTapDown() {
+    setState(() => _isTouchPressed = true);
+    widget.onTapDown();
+  }
+
+  void _handleTapUp() {
+    setState(() => _isTouchPressed = false);
+    widget.onTapUp();
+  }
+
+  @override
   Widget build(BuildContext context) {
     // Puzzle piece size for Identify mode: 48x48 circle 
     final circleSize = 48.0;
+    final bool effectiveIsPressed = widget.isPressed || _isTouchPressed;
 
-    Widget keyContent = showQuestionMarkCircle 
+    Widget keyContent = widget.showQuestionMarkCircle 
           ? Container(
               width: circleSize,
               height: circleSize,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 border: Border.all(
-                  color: isIdentified ? const Color(0xFF4FA2FF) : Colors.black12, 
+                  color: widget.isIdentified ? const Color(0xFF4FA2FF) : Colors.black12, 
                   width: 2, 
                   style: BorderStyle.solid
                 ),
-                color: isIdentified ? const Color(0xFFE0F2FE) : Colors.white,
+                color: widget.isIdentified ? const Color(0xFFE0F2FE) : Colors.white,
                 boxShadow: [
                   BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4, spreadRadius: 1)
                 ]
               ),
               child: Center(
                 child: Text(
-                  label,
+                  widget.label,
                   style: TextStyle(
-                    color: isIdentified ? const Color(0xFF4FA2FF) : Colors.black45,
+                    color: widget.isIdentified ? const Color(0xFF4FA2FF) : Colors.black45,
                     fontSize: 24,
                     fontWeight: FontWeight.bold,
                   ),
@@ -140,7 +168,7 @@ class _WhiteKey extends StatelessWidget {
               ),
             )
           : Text(
-              label,
+              widget.label,
               style: TextStyle(
                 color: Colors.black.withOpacity(0.6),
                 fontSize: 24,
@@ -149,19 +177,38 @@ class _WhiteKey extends StatelessWidget {
             );
 
     Widget container = AnimatedContainer(
-        duration: const Duration(milliseconds: 100),
-        width: width,
+        duration: const Duration(milliseconds: 150),
+        curve: Curves.easeOutCubic,
+        width: widget.width,
         height: double.infinity,
-        margin: const EdgeInsets.symmetric(horizontal: 2),
+        margin: EdgeInsets.only(
+          left: 2, 
+          right: 2, 
+          top: effectiveIsPressed ? 4 : 0, 
+        ),
         decoration: BoxDecoration(
-          color: isPressed ? const Color(0xFFF1F5F9) : Colors.white,
-          border: Border.all(color: Colors.black.withOpacity(0.1), width: 1),
-          borderRadius: BorderRadius.circular(8),
+          color: Colors.white,
+          border: Border.all(color: Colors.black.withOpacity(0.08), width: 1),
+          borderRadius: const BorderRadius.only(
+            bottomLeft: Radius.circular(8),
+            bottomRight: Radius.circular(8),
+          ),
+          gradient: effectiveIsPressed 
+            ? const LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [Color(0xFFF1F5F9), Color(0xFFE2E8F0)],
+              )
+            : const LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [Colors.white, Color(0xFFF8FAFC)],
+              ),
           boxShadow: [
              BoxShadow(
-                color: Colors.black.withOpacity(isPressed ? 0.05 : 0.1),
-                offset: const Offset(0, 4),
-                blurRadius: 4,
+                color: Colors.black.withOpacity(effectiveIsPressed ? 0.02 : 0.12),
+                offset: Offset(0, effectiveIsPressed ? 2 : 8),
+                blurRadius: effectiveIsPressed ? 2 : 10,
               ),
           ],
         ),
@@ -174,17 +221,21 @@ class _WhiteKey extends StatelessWidget {
               child: keyContent,
             ),
             
-            // Bottom Highlight Indicator (User request)
-            if (isPressed)
+            // Bottom Highlight Indicator (Blue line)
+            if (widget.isPressed)
               Container(
-                width: width * 0.6,
-                height: 6,
-                margin: const EdgeInsets.only(bottom: 8),
+                width: widget.width * 0.75,
+                height: 8,
+                margin: const EdgeInsets.only(bottom: 6),
                 decoration: BoxDecoration(
                   color: const Color(0xFF4FA2FF),
-                  borderRadius: BorderRadius.circular(3),
+                  borderRadius: BorderRadius.circular(4),
                   boxShadow: [
-                    BoxShadow(color: const Color(0xFF4FA2FF).withOpacity(0.5), blurRadius: 8, spreadRadius: 2)
+                    BoxShadow(
+                      color: const Color(0xFF4FA2FF).withOpacity(0.6), 
+                      blurRadius: 12, 
+                      spreadRadius: 2
+                    )
                   ]
                 ),
               ),
@@ -192,15 +243,15 @@ class _WhiteKey extends StatelessWidget {
         ),
     );
 
-    if (onAcceptDrop != null) {
+    if (widget.onAcceptDrop != null) {
       return DragTarget<String>(
         onWillAccept: (data) => true,
-        onAccept: (data) => onAcceptDrop!(data),
+        onAccept: (data) => widget.onAcceptDrop!(data),
         builder: (context, candidateData, rejectedData) {
           return GestureDetector(
-            onTapDown: (_) => onTapDown(),
-            onTapUp: (_) => onTapUp(),
-            onTapCancel: onTapUp,
+            onTapDown: (_) => _handleTapDown(),
+            onTapUp: (_) => _handleTapUp(),
+            onTapCancel: _handleTapUp,
             child: container,
           );
         },
@@ -208,9 +259,9 @@ class _WhiteKey extends StatelessWidget {
     }
 
     return GestureDetector(
-      onTapDown: (_) => onTapDown(),
-      onTapUp: (_) => onTapUp(),
-      onTapCancel: onTapUp,
+      onTapDown: (_) => _handleTapDown(),
+      onTapUp: (_) => _handleTapUp(),
+      onTapCancel: _handleTapUp,
       child: container,
     );
   }
@@ -232,19 +283,22 @@ class _BlackKey extends StatelessWidget {
       height: height,
       decoration: BoxDecoration(
         color: Colors.black,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFF1E1E1E), width: 2),
+        borderRadius: const BorderRadius.only(
+          bottomLeft: Radius.circular(6),
+          bottomRight: Radius.circular(6),
+        ),
+        border: Border.all(color: const Color(0xFF1E1E1E), width: 1.5),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.5),
-            offset: const Offset(2, 2),
-            blurRadius: 4,
+            color: Colors.black.withOpacity(0.6),
+            offset: const Offset(0, 6),
+            blurRadius: 8,
           ),
         ],
         gradient: const LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [Color(0xFF333333), Colors.black],
+          colors: [Color(0xFF444444), Color(0xFF0A0A0A)],
         ),
       ),
     );
