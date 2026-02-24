@@ -548,6 +548,46 @@ class Command(BaseCommand):
                 notes=seq_data['notes']
             )
 
+        # =====================
+        # LEVEL 3 - LESSON 2: THE NOTES F AND G
+        # =====================
+        l3_lesson2, created = Lesson.objects.get_or_create(
+            module=module3,
+            order=2,
+            defaults={
+                'title': 'The notes F and G',
+                'lesson_type': 'practice', 
+            }
+        )
+        if created:
+            self.stdout.write(self.style.SUCCESS(f'Created lesson: {l3_lesson2.title}'))
+        else:
+            self.stdout.write(f'Lesson already exists: {l3_lesson2.title}')
+            l3_lesson2.sequences.all().delete()
+
+        self.stdout.write(f'Seeding sequences for "{l3_lesson2.title}"...')
+        
+        l3_lesson2_sequences = [
+            {"order": 1, "type": "learn", "notes": ["F"]},
+            {"order": 2, "type": "learn", "notes": ["G"]},
+            {"order": 3, "type": "tap",   "notes": ["F", "F", "F", "F"]},
+            {"order": 4, "type": "tap",   "notes": ["G", "G", "G", "G"]},
+            {"order": 5, "type": "identify", "notes": ["C", "E", "F", "G"]},
+            {"order": 6, "type": "identify", "notes": ["C", "D", "F", "G"]},
+            {"order": 7, "type": "read",     "notes": ["F", "F", "F", "F"]},
+            {"order": 8, "type": "read",     "notes": ["G", "G", "G", "G"]},
+            {"order": 9, "type": "place",    "notes": ["F"]},
+            {"order": 10, "type": "place",   "notes": ["G"]},
+        ]
+
+        for seq_data in l3_lesson2_sequences:
+            PracticeSequence.objects.create(
+                lesson=l3_lesson2,
+                order=seq_data['order'],
+                sequence_type=seq_data['type'],
+                notes=seq_data['notes']
+            )
+
         self.stdout.write(self.style.SUCCESS(f'Successfully seeded sequences for all lessons.'))
         
         self.stdout.write('')
@@ -566,3 +606,4 @@ class Command(BaseCommand):
         self.stdout.write(f'    - Lesson 5: {l2_lesson5.title}')
         self.stdout.write(f'  - Module 3: {module3.title}')
         self.stdout.write(f'    - Lesson 1: {l3_lesson1.title} ({len(l3_lesson1_sequences)} seqs)')
+        self.stdout.write(f'    - Lesson 2: {l3_lesson2.title} ({len(l3_lesson2_sequences)} seqs)')

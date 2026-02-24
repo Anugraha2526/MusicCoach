@@ -11,6 +11,8 @@ import '../widgets/lesson/draggable_note_option.dart';
 import '../widgets/lesson/moving_notation_widget.dart';
 import '../widgets/lesson/colored_piano_keyboard.dart';
 import '../widgets/lesson/colored_notation_widget.dart';
+import '../widgets/lesson/note_circles_widget.dart';
+import '../widgets/lesson/staff_place_widget.dart';
 
 /// Interactive piano lesson screen that forces landscape mode.
 /// Implements a "Simon Says" style play-and-follow game.
@@ -69,12 +71,15 @@ class _InteractivePianoLessonScreenState extends State<InteractivePianoLessonScr
   static const int durationTargetMs = 800; // Easier target (0.8s)
   static const int timerStepMs = 50; // Progress update interval
   
-  // Note colors mapping
-  final Map<String, Color> noteColors = {
-    'C': const Color(0xFF00B4D8),
-    'D': const Color(0xFF6C5CE7),
-    'E': const Color(0xFF00D9A5),
-  };
+  // Note colors - shared with ColoredPianoKeyboard to ensure consistency
+  Map<String, Color> get noteColors => ColoredPianoKeyboard.noteColors;
+
+  // Track which note the user is actively pressing (for minimap + persisting color)
+  String? _pressedNote;
+
+  // Tap mode state
+  bool _tapCooldown = false; // Blocks input for 2s after correct tap
+  int _tapFilledCount = 0;   // How many circles are filled
 
   // Helper to determine which keys to show based on the sequences
   List<String> get _requiredKeys {
@@ -247,7 +252,12 @@ class _InteractivePianoLessonScreenState extends State<InteractivePianoLessonScr
        currentInput = [];
        identifiedNotes = {};
        highlightedKey = null;
+       _pressedNote = null; // Clear persisted key color for next unit
        shuffledOptions = options;
+       
+       // Reset tap mode state
+       _tapFilledCount = 0;
+       _tapCooldown = false;
        
        // Reset play mode state
        if (currentSeq.type == 'play' || currentSeq.type == 'perform') {
@@ -666,6 +676,9 @@ class _InteractivePianoLessonScreenState extends State<InteractivePianoLessonScr
     final currentSeq = sequences[currentSequenceIndex];
     _startNote(note);
     
+    // Track pressed note for minimap highlighting
+    setState(() => _pressedNote = note);
+    
     if (currentSeq.type == 'identify') return; 
 
     if (currentSeq.type == 'read') {
@@ -678,14 +691,66 @@ class _InteractivePianoLessonScreenState extends State<InteractivePianoLessonScr
       return;
     }
 
+    if (currentSeq.type == 'tap') {
+      _handleTapModeInput(note);
+      return;
+    }
+
     setState(() {
       currentInput.add(note);
     });
     _checkInput();
   }
 
+  void _handleTapModeInput(String note) {
+    if (_tapCooldown) return; // Block input during cooldown
+    if (currentSequenceIndex >= sequences.length) return;
+    
+    final currentSeq = sequences[currentSequenceIndex];
+    final expectedNote = currentSeq.notes.first; // All notes in tap are the same
+    
+    if (note == expectedNote) {
+      // Correct!
+      setState(() {
+        _tapFilledCount++;
+        _tapCooldown = true;
+      });
+      
+      // Check if all circles are filled
+      if (_tapFilledCount >= currentSeq.notes.length) {
+        // All done - delay briefly then advance
+        Future.delayed(const Duration(seconds: 1), () {
+          if (mounted) {
+            setState(() {
+              _tapCooldown = false;
+              _pressedNote = null;
+            });
+            _handleSequenceSuccess();
+          }
+        });
+      } else {
+        // More circles to fill - hold key color for 2s then reset for next press
+        Future.delayed(const Duration(seconds: 1), () {
+          if (mounted) {
+            setState(() {
+              _tapCooldown = false;
+              _pressedNote = null;
+            });
+          }
+        });
+      }
+    }
+  }
+
   void _onKeyTapUp(String note) {
     final currentSeq = sequences[currentSequenceIndex];
+    
+    // In learn/tap mode, keep _pressedNote set so the key stays colored after correct press
+    // It will be cleared when _startCurrentSequence resets for the next unit
+    if (currentSeq.type != 'learn' && currentSeq.type != 'tap') {
+      setState(() => _pressedNote = null);
+    }
+    
     if (currentSeq.type == 'read') {
       _stopDurationTimer();
     }
@@ -800,6 +865,38 @@ class _InteractivePianoLessonScreenState extends State<InteractivePianoLessonScr
     final currentSeq = sequences[safeIndex];
     final screenWidth = MediaQuery.of(context).size.width;
     
+    // Special layout for 'place' mode (staff drag interaction)
+    if (currentSeq.type == 'place') {
+      final targetNote = currentSeq.notes.first;
+      final targetColor = noteColors[targetNote] ?? Colors.blue;
+      return Scaffold(
+        backgroundColor: const Color(0xFF1E293B),
+        body: SafeArea(
+          child: Column(
+            children: [
+              _buildHeader(currentSeq),
+              Expanded(
+                child: StaffPlaceWidget(
+                  key: ValueKey('place_$currentSequenceIndex'),
+                  targetNote: targetNote,
+                  targetColor: targetColor,
+                  onNoteChanged: (note) {
+                    _startNote(note);
+                  },
+                  onCorrectPlacement: () {
+                    _startNote(targetNote);
+                    Future.delayed(const Duration(milliseconds: 800), () {
+                      if (mounted) _handleSequenceSuccess();
+                    });
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     // Special layout for 'play' and 'perform' mode (Lesson 3 & 4)
     if (currentSeq.type == 'play' || currentSeq.type == 'perform') {
       return Scaffold(
@@ -870,10 +967,10 @@ class _InteractivePianoLessonScreenState extends State<InteractivePianoLessonScr
     // Original layout for other lesson types
     // Dynamic width based on the number of keys to display
     final int keyCount = _requiredKeys.length;
-    double pianoWidthMultiplier = (currentSeq.type == 'learn' || currentSeq.type == 'identify') ? 0.22 : 0.32;
+    double pianoWidthMultiplier = (currentSeq.type == 'learn' || currentSeq.type == 'tap' || currentSeq.type == 'identify') ? 0.22 : 0.32;
     // Scale up for full octave
     if (keyCount > 3) {
-      pianoWidthMultiplier = (currentSeq.type == 'learn' || currentSeq.type == 'identify') ? 0.45 : 0.65;
+      pianoWidthMultiplier = (currentSeq.type == 'learn' || currentSeq.type == 'tap' || currentSeq.type == 'identify') ? 0.45 : 0.65;
     }
     
     // Scale height slightly for bigger keyboards to maintain aspect ratio
@@ -906,6 +1003,18 @@ class _InteractivePianoLessonScreenState extends State<InteractivePianoLessonScr
                           ),
                         ),
                       )
+                   else if (currentSeq.type == 'tap')
+                      Expanded(
+                        flex: 2,
+                        child: Center(
+                          child: NoteCirclesWidget(
+                            note: currentSeq.notes.first,
+                            color: noteColors[currentSeq.notes.first] ?? Colors.blue,
+                            totalCount: currentSeq.notes.length,
+                            filledCount: _tapFilledCount,
+                          ),
+                        ),
+                      )
                    else
                       const Spacer(flex: 1), // Placeholder when no notation
                    
@@ -914,9 +1023,9 @@ class _InteractivePianoLessonScreenState extends State<InteractivePianoLessonScr
                      flex: 3,
                      child: Center(
                        child: SizedBox(
-                         width: currentSeq.type == 'read' ? screenWidth * 0.45 : screenWidth * pianoWidthMultiplier,
+                         width: screenWidth * pianoWidthMultiplier,
                          height: finalPianoHeight,
-                         child: currentSeq.type == 'read'
+                         child: (currentSeq.type == 'read' || currentSeq.type == 'learn' || currentSeq.type == 'tap')
                              ? ColoredPianoKeyboard(
                                  highlightedKey: highlightedKey,
                                  onNoteDown: _onKeyTapDown,
@@ -925,6 +1034,7 @@ class _InteractivePianoLessonScreenState extends State<InteractivePianoLessonScr
                                      ? currentSeq.notes[currentInput.length] 
                                      : null,
                                  wrongNote: null,
+                                 persistedNote: _pressedNote,
                                  visibleNotes: _requiredKeys,
                                )
                              : PianoKeyboard(
@@ -935,6 +1045,7 @@ class _InteractivePianoLessonScreenState extends State<InteractivePianoLessonScr
                                  showQuestionMarks: currentSeq.type == 'identify',
                                  showLabels: true,
                                  identifiedNotes: identifiedNotes,
+                                 targetNotes: currentSeq.type == 'identify' ? Set.from(currentSeq.notes) : const {},
                                  visibleNotes: _requiredKeys,
                                ),
                        ),
@@ -957,8 +1068,12 @@ class _InteractivePianoLessonScreenState extends State<InteractivePianoLessonScr
   }
 
   Widget _buildSupplementaryUI(PracticeSequence seq) {
-    if (seq.type == 'learn') {
-      return PianoRangeMinimap(highlightMiddle: true);
+    if (seq.type == 'learn' || seq.type == 'tap') {
+      return PianoRangeMinimap(
+        highlightMiddle: true,
+        pressedNote: _pressedNote,
+        pressedNoteColor: _pressedNote != null ? noteColors[_pressedNote] : null,
+      );
     }
     
     if (seq.type == 'identify') {
@@ -989,6 +1104,16 @@ class _InteractivePianoLessonScreenState extends State<InteractivePianoLessonScr
          final note = seq.notes.first;
          instruction = "Play the note $note";
          titleColor = noteColors[note] ?? Colors.white;
+         break;
+      case 'tap':
+         final tapNote = seq.notes.first;
+         instruction = "Play the note $tapNote";
+         titleColor = noteColors[tapNote] ?? Colors.white;
+         break;
+      case 'place':
+         final placeNote = seq.notes.first;
+         instruction = "Drag to the note $placeNote";
+         titleColor = noteColors[placeNote] ?? Colors.white;
          break;
       case 'identify': instruction = "Identify the keys"; break;
       case 'read': instruction = "Play the written notes"; break;

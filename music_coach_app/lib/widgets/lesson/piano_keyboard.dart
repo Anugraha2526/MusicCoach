@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'colored_piano_keyboard.dart';
 
 class PianoKeyboard extends StatelessWidget {
   final String? highlightedKey; // Key that should light up (e.g., 'C')
@@ -9,6 +10,7 @@ class PianoKeyboard extends StatelessWidget {
   final bool showQuestionMarks; // If true, labels are '?' (for Identify mode)
   final List<String> visibleNotes; // Which keys to show
   final Set<String> identifiedNotes; // Notes correctly dropped in Identify mode
+  final Set<String> targetNotes; // Only these keys show the '?' circle in identify mode
 
   const PianoKeyboard({
     super.key,
@@ -20,6 +22,7 @@ class PianoKeyboard extends StatelessWidget {
     this.showQuestionMarks = false,
     this.visibleNotes = const ['C', 'D', 'E'],
     this.identifiedNotes = const {},
+    this.targetNotes = const {},
   });
 
   @override
@@ -76,21 +79,35 @@ class PianoKeyboard extends StatelessWidget {
   }
 
   Widget _buildWhiteKey(String note, double width) {
-    // If showQuestionMarks is true (Identify mode), only show '?' if NOT identified yet
     final isIdentified = identifiedNotes.contains(note);
-    final label = showQuestionMarks 
-        ? (isIdentified ? note : '?') 
-        : (showLabels ? note : '');
+    final isTarget = targetNotes.isEmpty || targetNotes.contains(note);
+    final showCircle = showQuestionMarks && isTarget;
+    
+    // In Identify mode (showQuestionMarks), only show labels for identified target notes,
+    // show '?' for unidentified targets, and show nothing for non-targets.
+    String label;
+    if (showQuestionMarks) {
+      if (isTarget) {
+        label = isIdentified ? note : '?';
+      } else {
+        label = ''; // Hide labels for non-target keys
+      }
+    } else {
+      label = showLabels ? note : '';
+    }
+    
     final isPressed = highlightedKey == note;
+    final noteColor = ColoredPianoKeyboard.noteColors[note];
     
     return _WhiteKey(
       label: label,
       width: width,
       isPressed: isPressed,
       isIdentified: isIdentified,
+      identifiedColor: isIdentified ? noteColor : null,
       onTapDown: () => onNoteDown(note),
       onTapUp: () => onNoteUp(note),
-      showQuestionMarkCircle: showQuestionMarks,
+      showQuestionMarkCircle: showCircle,
       onAcceptDrop: onNoteDrop != null ? (dropped) => onNoteDrop!(note, dropped) : null,
     );
   }
@@ -101,6 +118,7 @@ class _WhiteKey extends StatefulWidget {
   final double width;
   final bool isPressed;
   final bool isIdentified;
+  final Color? identifiedColor; // Key fill color after correct identification
   final VoidCallback onTapDown;
   final VoidCallback onTapUp;
   final bool showQuestionMarkCircle;
@@ -111,6 +129,7 @@ class _WhiteKey extends StatefulWidget {
     required this.width,
     required this.isPressed,
     this.isIdentified = false,
+    this.identifiedColor,
     required this.onTapDown,
     required this.onTapUp,
     this.showQuestionMarkCircle = false,
@@ -147,12 +166,22 @@ class _WhiteKeyState extends State<_WhiteKey> {
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 border: Border.all(
-                  color: widget.isIdentified ? const Color(0xFF4FA2FF) : Colors.black12, 
+                  color: widget.isIdentified 
+                      ? (widget.identifiedColor ?? const Color(0xFF4FA2FF))
+                      : Colors.black12, 
                   width: 2, 
                   style: BorderStyle.solid
                 ),
-                color: widget.isIdentified ? const Color(0xFFE0F2FE) : Colors.white,
-                boxShadow: [
+                color: widget.isIdentified 
+                    ? (widget.identifiedColor ?? const Color(0xFF4FA2FF))
+                    : Colors.white,
+                boxShadow: widget.isIdentified ? [
+                  BoxShadow(
+                    color: (widget.identifiedColor ?? const Color(0xFF4FA2FF)).withOpacity(0.4),
+                    blurRadius: 12,
+                    spreadRadius: 2,
+                  )
+                ] : [
                   BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4, spreadRadius: 1)
                 ]
               ),
@@ -160,7 +189,7 @@ class _WhiteKeyState extends State<_WhiteKey> {
                 child: Text(
                   widget.label,
                   style: TextStyle(
-                    color: widget.isIdentified ? const Color(0xFF4FA2FF) : Colors.black45,
+                    color: widget.isIdentified ? Colors.white : Colors.black45,
                     fontSize: 24,
                     fontWeight: FontWeight.bold,
                   ),
@@ -187,23 +216,36 @@ class _WhiteKeyState extends State<_WhiteKey> {
           top: effectiveIsPressed ? 4 : 0, 
         ),
         decoration: BoxDecoration(
-          color: Colors.white,
-          border: Border.all(color: Colors.black.withOpacity(0.08), width: 1),
+          color: widget.isIdentified && widget.identifiedColor != null
+              ? widget.identifiedColor!
+              : Colors.white,
+          border: Border.all(
+            color: widget.isIdentified && widget.identifiedColor != null
+                ? widget.identifiedColor!.withOpacity(0.7)
+                : Colors.black.withOpacity(0.08),
+            width: 1
+          ),
           borderRadius: const BorderRadius.only(
             bottomLeft: Radius.circular(8),
             bottomRight: Radius.circular(8),
           ),
-          gradient: effectiveIsPressed 
-            ? const LinearGradient(
+          gradient: widget.isIdentified && widget.identifiedColor != null
+            ? LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
-                colors: [Color(0xFFF1F5F9), Color(0xFFE2E8F0)],
+                colors: [widget.identifiedColor!.withOpacity(0.7), widget.identifiedColor!],
               )
-            : const LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [Colors.white, Color(0xFFF8FAFC)],
-              ),
+            : effectiveIsPressed 
+              ? const LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Color(0xFFF1F5F9), Color(0xFFE2E8F0)],
+                )
+              : const LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Colors.white, Color(0xFFF8FAFC)],
+                ),
           boxShadow: [
              BoxShadow(
                 color: Colors.black.withOpacity(effectiveIsPressed ? 0.02 : 0.12),
