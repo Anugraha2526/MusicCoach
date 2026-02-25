@@ -588,6 +588,55 @@ class Command(BaseCommand):
                 notes=seq_data['notes']
             )
 
+        # =====================
+        # LEVEL 3 - LESSON 3: PLAY AT YOUR OWN PACE (Three Blind Mice)
+        # =====================
+        l3_lesson3, created = Lesson.objects.get_or_create(
+            module=module3,
+            order=3,
+            defaults={
+                'title': "Three Blind Mice- Lily's Version",
+                'lesson_type': 'practice',
+            }
+        )
+        if created:
+            self.stdout.write(self.style.SUCCESS(f'Created lesson: {l3_lesson3.title}'))
+        else:
+            self.stdout.write(f'Lesson already exists: {l3_lesson3.title}')
+            l3_lesson3.sequences.all().delete()
+
+        self.stdout.write(f'Seeding sequences for "{l3_lesson3.title}"...')
+        
+        l3_lesson3_sequences = [
+             {
+                "order": 1, 
+                "type": "play", 
+                "notes": [
+                    "C", "-", "-", "-", 
+                    "-", "-", "-", "-", 
+                    "E", "D", "C", "-", 
+                    "E", "D", "C", "-", 
+                    "G", "F", "E", "-", 
+                    "G", "F", "E", "-", 
+                    "E", "D", "C", "-", 
+                    "E", "D", "C", "-", 
+                    "G", "F", "E", "-", 
+                    "G", "F", "E", "D", 
+                    "C", "-", "-", "-", 
+                ],
+                "time_signature": "4/4"
+            },
+        ]
+
+        for seq_data in l3_lesson3_sequences:
+            PracticeSequence.objects.create(
+                lesson=l3_lesson3,
+                order=seq_data['order'],
+                sequence_type=seq_data['type'],
+                notes=seq_data['notes'],
+                time_signature=seq_data.get('time_signature', '4/4')
+            )
+
         self.stdout.write(self.style.SUCCESS(f'Successfully seeded sequences for all lessons.'))
         
         self.stdout.write('')
@@ -607,3 +656,4 @@ class Command(BaseCommand):
         self.stdout.write(f'  - Module 3: {module3.title}')
         self.stdout.write(f'    - Lesson 1: {l3_lesson1.title} ({len(l3_lesson1_sequences)} seqs)')
         self.stdout.write(f'    - Lesson 2: {l3_lesson2.title} ({len(l3_lesson2_sequences)} seqs)')
+        self.stdout.write(f'    - Lesson 3: {l3_lesson3.title} ({len(l3_lesson3_sequences)} seqs)')

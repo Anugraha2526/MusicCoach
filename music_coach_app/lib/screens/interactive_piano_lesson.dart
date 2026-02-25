@@ -213,7 +213,9 @@ class _InteractivePianoLessonScreenState extends State<InteractivePianoLessonScr
       final firstNote = sequences.first.notes.isNotEmpty ? sequences.first.notes.first : '';
       
       String? assetPath;
-      if (firstNote == 'E') {
+      if (widget.lessonTitle != null && widget.lessonTitle!.contains('Three Blind Mice')) {
+         assetPath = 'assets/audio/piano_level3/three_blind_mice.mp3';
+      } else if (firstNote == 'E') {
          assetPath = 'assets/audio/piano_level1/hot_cross_buns.mp3';
       } else if (firstNote == 'D') {
          // Try Work Song
@@ -297,6 +299,11 @@ class _InteractivePianoLessonScreenState extends State<InteractivePianoLessonScr
   // Work Song (Level 2 Lesson 2): 1400ms (Slower for learning)
   int get _lessonScrollDuration {
     if (sequences.isEmpty) return 1189;
+    
+    // Check by title first for specific lessons
+    if (widget.lessonTitle != null && widget.lessonTitle!.contains('Three Blind Mice')) {
+       return 529; 
+    }
     
     final firstNote = sequences.first.notes.isNotEmpty ? sequences.first.notes.first : '';
     
@@ -940,7 +947,7 @@ class _InteractivePianoLessonScreenState extends State<InteractivePianoLessonScr
                       flex: 1,
                       child: Center(
                         child: SizedBox(
-                          width: screenWidth * 0.45, // Bigger piano for play mode
+                          width: screenWidth * (_requiredKeys.length > 3 ? 0.65 : 0.45), // Bigger piano for play mode
                           height: 140, // Taller keys too
                           child: ColoredPianoKeyboard(
                             highlightedKey: highlightedKey,
