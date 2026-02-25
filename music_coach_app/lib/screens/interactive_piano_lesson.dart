@@ -213,7 +213,7 @@ class _InteractivePianoLessonScreenState extends State<InteractivePianoLessonScr
       final firstNote = sequences.first.notes.isNotEmpty ? sequences.first.notes.first : '';
       
       String? assetPath;
-      if (widget.lessonTitle != null && widget.lessonTitle!.contains('Three Blind Mice')) {
+      if ((widget.lessonTitle != null && widget.lessonTitle!.contains('Three Blind Mice')) || firstNote == 'C') {
          assetPath = 'assets/audio/piano_level3/three_blind_mice.mp3';
       } else if (firstNote == 'E') {
          assetPath = 'assets/audio/piano_level1/hot_cross_buns.mp3';
@@ -300,12 +300,12 @@ class _InteractivePianoLessonScreenState extends State<InteractivePianoLessonScr
   int get _lessonScrollDuration {
     if (sequences.isEmpty) return 1189;
     
-    // Check by title first for specific lessons
-    if (widget.lessonTitle != null && widget.lessonTitle!.contains('Three Blind Mice')) {
+    final firstNote = sequences.first.notes.isNotEmpty ? sequences.first.notes.first : '';
+    
+    // Check by title first or first note for specific lessons
+    if ((widget.lessonTitle != null && widget.lessonTitle!.contains('Three Blind Mice')) || firstNote == 'C') {
        return 529; 
     }
-    
-    final firstNote = sequences.first.notes.isNotEmpty ? sequences.first.notes.first : '';
     
     // Work Song starts with D major/minor pattern usually, but let's check notes
     if (firstNote == 'D') {
@@ -1126,9 +1126,14 @@ class _InteractivePianoLessonScreenState extends State<InteractivePianoLessonScr
       case 'read': instruction = "Play the written notes"; break;
       case 'play': instruction = "Play at your own pace"; break;
       case 'perform': 
-         instruction = (sequences.isNotEmpty && sequences.first.notes.isNotEmpty && sequences.first.notes.first == 'D')
-             ? "Play the Work Song!"
-             : "Keep up with the music!"; 
+         if ((widget.lessonTitle != null && widget.lessonTitle!.contains('Three Blind Mice')) || 
+             (sequences.isNotEmpty && sequences.first.notes.isNotEmpty && sequences.first.notes.first == 'C')) {
+             instruction = "Keep up with the music!"; 
+         } else {
+             instruction = (sequences.isNotEmpty && sequences.first.notes.isNotEmpty && sequences.first.notes.first == 'D')
+                 ? "Play the Work Song!"
+                 : "Keep up with the music!"; 
+         }
          break;
     }
 
@@ -1137,7 +1142,21 @@ class _InteractivePianoLessonScreenState extends State<InteractivePianoLessonScr
       child: Column(
         children: [
           // Dynamic Header Title (e.g. Song Name)
-          if (sequences.isNotEmpty && sequences.first.notes.isNotEmpty && sequences.first.notes.first == 'D')
+          if ((widget.lessonTitle != null && widget.lessonTitle!.contains('Three Blind Mice')) || 
+              (sequences.isNotEmpty && sequences.first.notes.isNotEmpty && sequences.first.notes.first == 'C'))
+             const Padding(
+               padding: EdgeInsets.only(bottom: 8),
+               child: Text(
+                 "THREE BLIND MICE",
+                 style: TextStyle(
+                   color: Colors.redAccent,
+                   fontWeight: FontWeight.w900,
+                   fontSize: 16,
+                   letterSpacing: 1.5,
+                 ),
+               ),
+             )
+          else if (sequences.isNotEmpty && sequences.first.notes.isNotEmpty && sequences.first.notes.first == 'D')
              const Padding(
                padding: EdgeInsets.only(bottom: 8),
                child: Text(

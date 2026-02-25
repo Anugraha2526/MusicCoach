@@ -637,6 +637,75 @@ class Command(BaseCommand):
                 time_signature=seq_data.get('time_signature', '4/4')
             )
 
+        # =====================
+        # LEVEL 3 - LESSON 4: REHEARSAL (Three Blind Mice - Continuous)
+        # =====================
+        l3_lesson4, created = Lesson.objects.get_or_create(
+            module=module3,
+            order=4,
+            defaults={
+                'title': 'Rehearsal',
+                'lesson_type': 'practice',
+            }
+        )
+        if created:
+            self.stdout.write(self.style.SUCCESS(f'Created lesson: {l3_lesson4.title}'))
+        else:
+            self.stdout.write(f'Lesson already exists: {l3_lesson4.title}')
+            l3_lesson4.sequences.all().delete()
+
+        self.stdout.write(f'Seeding sequences for "{l3_lesson4.title}"...')
+        
+        # Three Blind Mice Sequence
+        three_blind_mice_notes = [
+            "C", "-", "-", "-", 
+            "-", "-", "-", "-", 
+            "E", "D", "C", "-", 
+            "E", "D", "C", "-", 
+            "G", "F", "E", "-", 
+            "G", "F", "E", "-", 
+            "E", "D", "C", "-", 
+            "E", "D", "C", "-", 
+            "G", "F", "E", "-", 
+            "G", "F", "E", "D", 
+            "C", "-", "-", "-", 
+        ]
+
+        PracticeSequence.objects.create(
+            lesson=l3_lesson4,
+            order=1,
+            sequence_type='perform', 
+            notes=three_blind_mice_notes,
+            time_signature='4/4'
+        )
+
+        # =====================
+        # LEVEL 3 - LESSON 5: PERFORM THREE BLIND MICE (Scored)
+        # =====================
+        l3_lesson5, created = Lesson.objects.get_or_create(
+            module=module3,
+            order=5,
+            defaults={
+                'title': "Perform Three Blind Mice- Lily's Version",
+                'lesson_type': 'practice',
+            }
+        )
+        if created:
+            self.stdout.write(self.style.SUCCESS(f'Created lesson: {l3_lesson5.title}'))
+        else:
+            self.stdout.write(f'Lesson already exists: {l3_lesson5.title}')
+            l3_lesson5.sequences.all().delete()
+
+        self.stdout.write(f'Seeding sequences for "{l3_lesson5.title}"...')
+        
+        PracticeSequence.objects.create(
+            lesson=l3_lesson5,
+            order=1,
+            sequence_type='perform', 
+            notes=three_blind_mice_notes,
+            time_signature='4/4'
+        )
+
         self.stdout.write(self.style.SUCCESS(f'Successfully seeded sequences for all lessons.'))
         
         self.stdout.write('')
@@ -657,3 +726,6 @@ class Command(BaseCommand):
         self.stdout.write(f'    - Lesson 1: {l3_lesson1.title} ({len(l3_lesson1_sequences)} seqs)')
         self.stdout.write(f'    - Lesson 2: {l3_lesson2.title} ({len(l3_lesson2_sequences)} seqs)')
         self.stdout.write(f'    - Lesson 3: {l3_lesson3.title} ({len(l3_lesson3_sequences)} seqs)')
+        self.stdout.write(f'    - Lesson 4: {l3_lesson4.title}')
+        self.stdout.write(f'    - Lesson 5: {l3_lesson5.title}')
+
