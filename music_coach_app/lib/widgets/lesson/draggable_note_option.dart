@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
+import 'colored_piano_keyboard.dart';
 
 class DraggableNoteOption extends StatelessWidget {
   final String note;
-  final bool isMatched; // If true, hide or show dimmed
+  final bool isMatched; // If true, show colored fill
 
   const DraggableNoteOption({
     super.key,
@@ -10,18 +11,35 @@ class DraggableNoteOption extends StatelessWidget {
     this.isMatched = false,
   });
 
-    @override
+  @override
   Widget build(BuildContext context) {
-    // Standard size to match keyboard circle: 48.0
     final size = 48.0;
+    final noteColor = ColoredPianoKeyboard.noteColors[note] ?? const Color(0xFF4FA2FF);
 
     if (isMatched) {
+      // Filled with the note's color when correctly placed
       return Container(
         width: size,
         height: size,
-        decoration: const BoxDecoration(
-          color: Colors.white10,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: noteColor,
           shape: BoxShape.circle,
+          boxShadow: [
+            BoxShadow(
+              color: noteColor.withOpacity(0.5),
+              blurRadius: 12,
+              spreadRadius: 2,
+            ),
+          ],
+        ),
+        child: Text(
+          note,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+          ),
         ),
       );
     }
@@ -35,7 +53,7 @@ class DraggableNoteOption extends StatelessWidget {
           height: size + 4,
           alignment: Alignment.center,
           decoration: BoxDecoration(
-            color: const Color(0xFF4FA2FF),
+            color: noteColor,
             shape: BoxShape.circle,
             boxShadow: [
               BoxShadow(
@@ -81,8 +99,8 @@ class DraggableNoteOption extends StatelessWidget {
         ),
         child: Text(
           note,
-          style: const TextStyle(
-            color: Colors.black87,
+          style: TextStyle(
+            color: noteColor,
             fontSize: 20,
             fontWeight: FontWeight.bold,
           ),

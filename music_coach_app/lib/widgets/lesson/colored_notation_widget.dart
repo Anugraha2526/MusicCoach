@@ -29,8 +29,14 @@ class ColoredNotationWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Staff height and line spacing
+    const double staffHeight = 48.0; // 4 gaps between 5 lines
+    const double lineSpacing = staffHeight / 4; // 12px per gap
+    // Half of lineSpacing for note steps (each note step = half a line gap)
+    const double noteStep = lineSpacing / 2; // 6px per note step
+
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
@@ -42,94 +48,97 @@ class ColoredNotationWidget extends StatelessWidget {
           ),
         ],
       ),
-      child: Row(
-        children: [
-          // Treble Clef
-          const Padding(
-            padding: EdgeInsets.only(right: 16),
-            child: Text(
-              '𝄞',
-              style: TextStyle(fontSize: 48, color: Colors.black),
-            ),
-          ),
+      child: SizedBox(
+        height: staffHeight + 40, // Extra room for notes above/below staff
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            // Staff Lines (5 horizontal lines spanning full width)
+            ...List.generate(5, (i) {
+              final y = 20.0 + i * lineSpacing; // 20px top padding
+              return Positioned(
+                left: 0,
+                right: 0,
+                top: y,
+                child: Container(height: 1.5, color: Colors.black26),
+              );
+            }),
 
-          // Time Signature
-          Padding(
-            padding: const EdgeInsets.only(right: 24),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  timeSignature.split('/')[0],
-                  style: const TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black87,
-                    height: 0.9,
-                  ),
+            // Treble Clef (left side)
+            Positioned(
+              left: 0,
+              top: 16,
+              child: Text(
+                '𝄞',
+                style: TextStyle(
+                  fontSize: 36,
+                  color: Colors.black87,
+                  height: 1.6,
                 ),
-                Container(
-                  width: 20,
-                  height: 1,
-                  color: Colors.black26,
-                ),
-                Text(
-                  timeSignature.split('/')[1],
-                  style: const TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black87,
-                    height: 0.9,
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          // Staff and Notes
-          Expanded(
-            child: Center(
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  // Staff Lines (5 lines)
-                  SizedBox(
-                    height: 60,
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: List.generate(
-                        5,
-                        (index) => Container(
-                          height: 1.5,
-                          color: Colors.black26,
-                        ),
-                      ),
-                    ),
-                  ),
-
-                  // Notes positioned on the staff
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: List.generate(notes.length, (index) {
-                      final note = notes[index];
-                      final isCompleted = index < completedIndex;
-                      final isCurrent = index == completedIndex;
-
-                      return _ColoredNoteOnStaff(
-                        note: note,
-                        isCompleted: isCompleted,
-                        isCurrent: isCurrent,
-                        progress: isCurrent
-                            ? currentProgress
-                            : (isCompleted ? 1.0 : 0.0),
-                      );
-                    }),
-                  ),
-                ],
               ),
             ),
-          ),
-        ],
+
+            // Time Signature
+            Positioned(
+              left: 32,
+              top: 20,
+              child: SizedBox(
+                height: staffHeight,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      timeSignature.split('/')[0],
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black87,
+                        height: 1.0,
+                      ),
+                    ),
+                    Text(
+                      timeSignature.split('/')[1],
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black87,
+                        height: 1.0,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            // Notes area
+            Positioned(
+              left: 60,
+              right: 8,
+              top: 0,
+              bottom: 0,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: List.generate(notes.length, (index) {
+                  final note = notes[index];
+                  final isCompleted = index < completedIndex;
+                  final isCurrent = index == completedIndex;
+
+                  return _ColoredNoteOnStaff(
+                    note: note,
+                    isCompleted: isCompleted,
+                    isCurrent: isCurrent,
+                    progress: isCurrent
+                        ? currentProgress
+                        : (isCompleted ? 1.0 : 0.0),
+                    staffTopPadding: 20.0,
+                    lineSpacing: lineSpacing,
+                    noteStep: noteStep,
+                  );
+                }),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -140,109 +149,130 @@ class _ColoredNoteOnStaff extends StatelessWidget {
   final bool isCompleted;
   final bool isCurrent;
   final double progress;
+  final double staffTopPadding;
+  final double lineSpacing;
+  final double noteStep;
 
   const _ColoredNoteOnStaff({
     required this.note,
     required this.isCompleted,
     required this.isCurrent,
     required this.progress,
+    required this.staffTopPadding,
+    required this.lineSpacing,
+    required this.noteStep,
   });
 
   @override
   Widget build(BuildContext context) {
-    // Treble Staff positions relative to middle:
-    // E4 is on the bottom line (1st line)
-    // D4 is just below the bottom line (in the space)
-    // C4 is below that, with a ledger line
+    // Treble clef staff positions (bottom line = E4, line 1):
+    // Line 5 (top):    F5   → staffTop + 0 * lineSpacing
+    // Space 4:         E5   → staffTop + 0.5 * lineSpacing
+    // Line 4:          D5   → staffTop + 1 * lineSpacing
+    // Space 3:         C5   → staffTop + 1.5 * lineSpacing
+    // Line 3:          B4   → staffTop + 2 * lineSpacing
+    // Space 2:         A4   → staffTop + 2.5 * lineSpacing
+    // Line 2:          G4   → staffTop + 3 * lineSpacing
+    // Space 1:         F4   → staffTop + 3.5 * lineSpacing
+    // Line 1 (bottom): E4   → staffTop + 4 * lineSpacing
+    // Below line 1:    D4   → staffTop + 4.5 * lineSpacing
+    // Ledger line:     C4   → staffTop + 5 * lineSpacing
 
-    double verticalOffset = 0;
+    double noteY; // Center of the note
     bool needsLedgerLine = false;
 
     switch (note) {
       case 'C':
-        verticalOffset = 60;
+        noteY = staffTopPadding + 5 * lineSpacing; // Below staff, on ledger line
         needsLedgerLine = true;
         break;
       case 'D':
-        verticalOffset = 45;
+        noteY = staffTopPadding + 4.5 * lineSpacing; // Below bottom line
         break;
       case 'E':
-        verticalOffset = 30;
+        noteY = staffTopPadding + 4 * lineSpacing; // On bottom line (line 1)
         break;
       case 'F':
-        verticalOffset = 15;
+        noteY = staffTopPadding + 3.5 * lineSpacing; // First space
         break;
       case 'G':
-        verticalOffset = 0;
+        noteY = staffTopPadding + 3 * lineSpacing; // Line 2
         break;
       case 'A':
-        verticalOffset = -15;
+        noteY = staffTopPadding + 2.5 * lineSpacing; // Second space
         break;
       case 'B':
-        verticalOffset = -30;
+        noteY = staffTopPadding + 2 * lineSpacing; // Line 3
         break;
+      default:
+        noteY = staffTopPadding + 4 * lineSpacing;
     }
 
     final noteColor = ColoredNotationWidget.noteColors[note] ?? Colors.blue;
+    const noteHeight = 18.0;
+    const noteWidth = 42.0;
 
-    return Transform.translate(
-      offset: Offset(0, verticalOffset),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
+    return SizedBox(
+      width: noteWidth + 8,
+      child: Stack(
+        clipBehavior: Clip.none,
         children: [
-          Stack(
-            alignment: Alignment.center,
-            children: [
-              // Ledger line for C4
-              if (needsLedgerLine)
-                Container(
-                  width: 50,
-                  height: 1.5,
-                  color: Colors.black45,
-                ),
-
-              // Note Rectangle (Horizontal Bar) with color
-              Container(
-                width: 45,
-                height: 20,
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  border: Border.all(
-                    color: isCurrent ? noteColor : noteColor.withOpacity(0.4),
-                    width: isCurrent ? 2.5 : 2,
-                  ),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                clipBehavior: Clip.antiAlias,
-                child: Stack(
-                  children: [
-                    // Filling Bar with note color
-                    FractionallySizedBox(
-                      widthFactor: progress,
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: noteColor.withOpacity(isCurrent ? 0.9 : 0.6),
-                          borderRadius: BorderRadius.circular(2),
-                        ),
-                      ),
-                    ),
-                    // Note label
-                    Center(
-                      child: Text(
-                        note,
-                        style: TextStyle(
-                          color: progress > 0.5
-                              ? Colors.white
-                              : noteColor.withOpacity(0.9),
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+          // Ledger line for C4
+          if (needsLedgerLine)
+            Positioned(
+              left: -4,
+              right: -4,
+              top: noteY - 0.75,
+              child: Container(
+                height: 1.5,
+                color: Colors.black45,
               ),
-            ],
+            ),
+
+          // Note Rectangle (colored bar)
+          Positioned(
+            left: 0,
+            top: noteY - noteHeight / 2,
+            child: Container(
+              width: noteWidth,
+              height: noteHeight,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                border: Border.all(
+                  color: isCurrent ? noteColor : noteColor.withOpacity(0.4),
+                  width: isCurrent ? 2.5 : 2,
+                ),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: Stack(
+                children: [
+                  // Filling bar
+                  FractionallySizedBox(
+                    widthFactor: progress,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: noteColor.withOpacity(isCurrent ? 0.9 : 0.6),
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  // Note label
+                  Center(
+                    child: Text(
+                      note,
+                      style: TextStyle(
+                        color: progress > 0.5
+                            ? Colors.white
+                            : noteColor.withOpacity(0.9),
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
         ],
       ),

@@ -2,8 +2,15 @@ import 'package:flutter/material.dart';
 
 class PianoRangeMinimap extends StatelessWidget {
   final bool highlightMiddle;
+  final String? pressedNote;
+  final Color? pressedNoteColor;
 
-  const PianoRangeMinimap({super.key, this.highlightMiddle = true});
+  const PianoRangeMinimap({
+    super.key, 
+    this.highlightMiddle = true,
+    this.pressedNote,
+    this.pressedNoteColor,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -43,11 +50,16 @@ class PianoRangeMinimap extends StatelessWidget {
             // White keys dividers
             Row(
               children: List.generate(7, (index) {
+                final noteNames = ['C', 'D', 'E', 'F', 'G', 'A', 'B'];
+                final isThisNotePressed = isHighlighted && pressedNote == noteNames[index];
+
                 return Expanded(
                   child: Container(
                     margin: const EdgeInsets.symmetric(horizontal: 0.5),
                     decoration: BoxDecoration(
-                      color: isHighlighted ? Colors.white.withOpacity(0.9) : Colors.white10,
+                      color: isThisNotePressed && pressedNoteColor != null 
+                          ? pressedNoteColor!
+                          : isHighlighted ? Colors.white.withOpacity(0.9) : Colors.white10,
                       borderRadius: const BorderRadius.vertical(bottom: Radius.circular(1)),
                     ),
                   ),

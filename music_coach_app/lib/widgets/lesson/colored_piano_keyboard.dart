@@ -8,9 +8,9 @@ class ColoredPianoKeyboard extends StatelessWidget {
   final Function(String) onNoteUp;
   final String? currentNote; // The note that should be played
   final String? wrongNote; // If user played wrong note
+  final String? persistedNote; // Note that stays colored after correct press
   
   // The range of notes to display. Defaults to C, D, E for backward compatibility/current lesson.
-  // In future, pass ['C', 'D', 'E', 'F', 'G', 'A', 'B'] etc.
   final List<String> visibleNotes;
 
   const ColoredPianoKeyboard({
@@ -20,6 +20,7 @@ class ColoredPianoKeyboard extends StatelessWidget {
     required this.onNoteUp,
     this.currentNote,
     this.wrongNote,
+    this.persistedNote,
     this.visibleNotes = const ['C', 'D', 'E'],
   });
 
@@ -101,12 +102,14 @@ class ColoredPianoKeyboard extends StatelessWidget {
 
   Widget _buildWhiteKey(String note, double width) {
     final isPressed = highlightedKey == note;
+    final isPersisted = persistedNote == note;
     final keyColor = noteColors[note] ?? Colors.blue;
 
     return _ColoredWhiteKey(
       note: note,
       width: width,
       isPressed: isPressed,
+      isPersisted: isPersisted,
       color: keyColor,
       onTapDown: () => onNoteDown(note),
       onTapUp: () => onNoteUp(note),
@@ -117,7 +120,8 @@ class ColoredPianoKeyboard extends StatelessWidget {
 class _ColoredWhiteKey extends StatefulWidget {
   final String note;
   final double width;
-  final bool isPressed;
+  final bool isPressed;   // Lesson highlighting this key
+  final bool isPersisted; // Key should stay colored (after correct press)
   final Color color;
   final VoidCallback onTapDown;
   final VoidCallback onTapUp;
@@ -126,6 +130,7 @@ class _ColoredWhiteKey extends StatefulWidget {
     required this.note,
     required this.width,
     required this.isPressed,
+    this.isPersisted = false,
     required this.color,
     required this.onTapDown,
     required this.onTapUp,
@@ -150,7 +155,12 @@ class _ColoredWhiteKeyState extends State<_ColoredWhiteKey> {
 
   @override
   Widget build(BuildContext context) {
+    // _isTouchPressed = user manually pressing (full color fill)
+    // widget.isPressed = lesson highlighting (bottom indicator only, sink effect)
+    // widget.isPersisted = key stays full-colored after correct press
     final bool effectiveIsPressed = widget.isPressed || _isTouchPressed;
+    // Active fill = user is actively touching OR note has been correctly played (persisted)
+    final bool isFilled = _isTouchPressed || widget.isPersisted;
     
     return GestureDetector(
       onTapDown: (_) => _handleTapDown(),
@@ -165,22 +175,22 @@ class _ColoredWhiteKeyState extends State<_ColoredWhiteKey> {
           left: 2, 
           right: 2, 
           top: effectiveIsPressed ? 4 : 0, 
-        ), // 2px margin each side = 4px total gap per key
+        ),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: isFilled ? widget.color : Colors.white,
           border: Border.all(
-            color: Colors.black.withOpacity(0.08),
+            color: isFilled ? widget.color.withOpacity(0.8) : Colors.black.withOpacity(0.08),
             width: 1,
           ),
           borderRadius: const BorderRadius.only(
             bottomLeft: Radius.circular(8),
             bottomRight: Radius.circular(8),
           ),
-          gradient: effectiveIsPressed 
-            ? const LinearGradient(
+          gradient: isFilled 
+            ? LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
-                colors: [Color(0xFFF1F5F9), Color(0xFFE2E8F0)],
+                colors: [widget.color.withOpacity(0.7), widget.color],
               )
             : const LinearGradient(
                 begin: Alignment.topCenter,
@@ -204,47 +214,33 @@ class _ColoredWhiteKeyState extends State<_ColoredWhiteKey> {
               child: Text(
                 widget.note,
                 style: TextStyle(
-                  color: widget.color,
+                // White text when key is filled (user touch or persisted), otherwise the key color
+                  color: isFilled ? Colors.white : widget.color,
                   fontSize: 28,
                   fontWeight: FontWeight.bold,
                 ),
               ),
             ),
 
-            // Colored shadow highlight at bottom
-            Container(
-              width: widget.width * 0.7,
-              height: 8,
-              margin: const EdgeInsets.only(bottom: 4),
-              decoration: BoxDecoration(
-                color: widget.color.withOpacity(0.3),
-                borderRadius: BorderRadius.circular(4),
-                boxShadow: [
-                  BoxShadow(
-                    color: widget.color.withOpacity(0.4),
-                    blurRadius: 8,
-                    spreadRadius: 1,
-                  ),
-                ],
-              ),
-            ),
-
-            // Pressed indicator (brighter when highlighted by lesson)
-            if (widget.isPressed)
+            // Colored underline indicator - always show (dimmer when not highlighted)
+            if (!isFilled)
               Container(
                 width: widget.width * 0.7,
                 height: 8,
                 margin: const EdgeInsets.only(bottom: 4),
                 decoration: BoxDecoration(
-                  color: widget.color.withOpacity(0.8),
+                  // Brighter when lesson is highlighting this key, dimmer otherwise
+                  color: widget.isPressed 
+                      ? widget.color.withOpacity(0.8)
+                      : widget.color.withOpacity(0.25),
                   borderRadius: BorderRadius.circular(4),
-                  boxShadow: [
+                  boxShadow: widget.isPressed ? [
                     BoxShadow(
                       color: widget.color.withOpacity(0.6),
                       blurRadius: 12,
                       spreadRadius: 2,
                     ),
-                  ],
+                  ] : [],
                 ),
               ),
           ],
