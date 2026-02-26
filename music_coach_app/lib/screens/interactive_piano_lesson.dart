@@ -1240,20 +1240,22 @@ class _InteractivePianoLessonScreenState extends State<InteractivePianoLessonScr
   Widget _buildCompletionScreen() {
     // defaults
     int stars = 3;
-    String title = 'LESSON COMPLETE!';
+    String fallbackTitle = widget.lessonTitle?.toUpperCase() ?? 'LESSON COMPLETE!';
+    String title = fallbackTitle;
     String subtitle = 'You\'ve mastered notes C, D, and E!';
     double accuracy = 1.0;
-    
+
     // Calculate accuracy for Perform mode
     // (Exclude Rehearsal Lesson 4 which uses 'perform' mode for continuous play but shouldn't be scored)
     // Use safe index since currentSequenceIndex is now at sequences.length (100% progress)
     final safeIndex = (currentSequenceIndex >= sequences.length) ? sequences.length - 1 : currentSequenceIndex;
     final lastSeq = sequences[safeIndex];
-    
+
     // Check if it's a "Rehearsal" lesson either by title or legacy ID check
     final bool isRehearsal = (widget.lessonTitle?.contains('Rehearsal') ?? false) || widget.lessonId == 4 || (widget.lessonTitle == 'Rehearsal');
+    final bool isPerformScoreable = sequences.isNotEmpty && lastSeq.type == 'perform' && !isRehearsal;
 
-    if (sequences.isNotEmpty && lastSeq.type == 'perform' && !isRehearsal) {
+    if (isPerformScoreable) {
        final totalNotes = lastSeq.notes.where((n) => n != '-').length;
        if (totalNotes > 0) {
           accuracy = correctNotesCount / totalNotes;
@@ -1271,6 +1273,9 @@ class _InteractivePianoLessonScreenState extends State<InteractivePianoLessonScr
              subtitle = 'Try again for better accuracy!';
           }
        }
+    } else {
+       // For non-perform lessons, show a generic congratulatory subtitle
+       subtitle = 'Great job completing this lesson!';
     }
 
     return Scaffold(
@@ -1279,48 +1284,68 @@ class _InteractivePianoLessonScreenState extends State<InteractivePianoLessonScr
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // STARS (Hide stars for Rehearsal too if desired, or keep them but always full/empty? Usually hide if no accuracy)
-            if (!isRehearsal)
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: List.generate(3, (index) {
-                 // index 0, 1, 2
-                 // if stars = 1, only index 0 is full
-                 // if stars = 2, 0 and 1 are full
-                 bool isFull = index < stars;
-                 return Padding(
-                   padding: const EdgeInsets.symmetric(horizontal: 8),
-                   child: AnimatedScale(
-                     scale: 1.0,
-                     duration: Duration(milliseconds: 300 + (index * 200)),
-                     child: Icon(
-                       isFull ? Icons.star_rounded : Icons.star_outline_rounded,
-                       size: index == 1 ? 90 : 70, // Middle star bigger
-                       color: isFull ? const Color(0xFFFFC800) : Colors.white24,
+            // STARS only for scoreable perform mode
+            if (isPerformScoreable)
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: List.generate(3, (index) {
+                   // index 0, 1, 2
+                   // if stars = 1, only index 0 is full
+                   // if stars = 2, 0 and 1 are full
+                   bool isFull = index < stars;
+                   return Padding(
+                     padding: const EdgeInsets.symmetric(horizontal: 8),
+                     child: AnimatedScale(
+                       scale: 1.0,
+                       duration: Duration(milliseconds: 300 + (index * 200)),
+                       child: Icon(
+                         isFull ? Icons.star_rounded : Icons.star_outline_rounded,
+                         size: index == 1 ? 90 : 70, // Middle star bigger
+                         color: isFull ? const Color(0xFFFFC800) : Colors.white24,
+                       ),
                      ),
+                   );
+                }),
+              )
+            else
+              // BADGE for non-perform modes
+              AnimatedScale(
+                 scale: 1.0,
+                 duration: const Duration(milliseconds: 500),
+                 child: Container(
+                   padding: const EdgeInsets.all(24),
+                   decoration: BoxDecoration(
+                     color: const Color(0xFF58CC02).withOpacity(0.2),
+                     shape: BoxShape.circle,
                    ),
-                 );
-              }),
-            ),
-            if (!isRehearsal) const SizedBox(height: 32),
-            
+                   child: const Icon(
+                     Icons.emoji_events_rounded,
+                     size: 100,
+                     color: Color(0xFF58CC02),
+                   ),
+                 ),
+              ),
+
+            const SizedBox(height: 32),
+
             Text(
-              title, 
-              style: const TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.bold, letterSpacing: 2)
+              title,
+              style: const TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.bold, letterSpacing: 2),
+              textAlign: TextAlign.center,
             ),
             const SizedBox(height: 8),
-            
-             // FIX: Use !isRehearsal here instead of widget.lessonId != 4
-             if (sequences.isNotEmpty && lastSeq.type == 'perform' && !isRehearsal)
+
+             if (isPerformScoreable)
               Text(
                 'Accuracy: ${(accuracy * 100).toInt()}%',
                 style: const TextStyle(color: Color(0xFF58CC02), fontSize: 24, fontWeight: FontWeight.bold),
               ),
-              
+
             const SizedBox(height: 16),
             Text(
-              subtitle, 
-              style: const TextStyle(color: Colors.white70, fontSize: 18)
+              subtitle,
+              style: const TextStyle(color: Colors.white70, fontSize: 18),
+              textAlign: TextAlign.center,
             ),
             const SizedBox(height: 48),
             ElevatedButton(
