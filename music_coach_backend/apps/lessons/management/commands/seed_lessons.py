@@ -964,6 +964,49 @@ class Command(BaseCommand):
                 notes=seq_data['notes']
             )
 
+        # =====================
+        # LEVEL 5 - LESSON 2: PRACTICE NOTES
+        # =====================
+        l5_lesson2, created = Lesson.objects.get_or_create(
+            module=module5,
+            order=2,
+            defaults={
+                'title': 'Practice Notes',
+                'lesson_type': 'practice',
+            }
+        )
+        if created:
+            self.stdout.write(self.style.SUCCESS(f'Created lesson: {l5_lesson2.title}'))
+        else:
+            self.stdout.write(f'Lesson already exists: {l5_lesson2.title}')
+            l5_lesson2.sequences.all().delete()
+
+        self.stdout.write(f'Seeding sequences for "{l5_lesson2.title}"...')
+        
+        l5_lesson2_sequences = [
+            # 1. Read (Colored Notation)
+            {"order": 1, "type": "read", "notes": ["D", "G", "G", "G"], "time_signature": "4/4"},
+            # 2. Read (Colored Notation)
+            {"order": 2, "type": "read", "notes": ["F", "E", "E", "D"], "time_signature": "4/4"},
+            # 3. Place (Drag note to notation line)
+            {"order": 3, "type": "place", "notes": ["C"]},
+            # 4. Place (Drag note to notation line)
+            {"order": 4, "type": "place", "notes": ["G"]},
+            # 5. Identify (Drag circle to correct key)
+            {"order": 5, "type": "identify", "notes": ["C", "D", "F", "G"]},
+            # 6. Identify (Drag circle to correct key)
+            {"order": 6, "type": "identify", "notes": ["C", "D", "E", "F"]},
+        ]
+
+        for seq_data in l5_lesson2_sequences:
+            PracticeSequence.objects.create(
+                lesson=l5_lesson2,
+                order=seq_data['order'],
+                sequence_type=seq_data['type'],
+                notes=seq_data['notes'],
+                time_signature=seq_data.get('time_signature', '4/4')
+            )
+
         self.stdout.write(self.style.SUCCESS(f'Successfully seeded sequences for all lessons.'))
         
         self.stdout.write('')
@@ -994,4 +1037,5 @@ class Command(BaseCommand):
         self.stdout.write(f'    - Lesson 5: {l4_lesson5.title}')
         self.stdout.write(f'  - Module 5: {module5.title}')
         self.stdout.write(f'    - Lesson 1: {l5_lesson1.title} ({len(l5_lesson1_sequences)} seqs)')
+        self.stdout.write(f'    - Lesson 2: {l5_lesson2.title} ({len(l5_lesson2_sequences)} seqs)')
 

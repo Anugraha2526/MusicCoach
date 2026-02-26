@@ -1351,6 +1351,13 @@ class _InteractivePianoLessonScreenState extends State<InteractivePianoLessonScr
             builder: (context) {
               final headerConfig = _resolveLessonConfig();
               if (headerConfig == null) return const SizedBox.shrink();
+
+              // User requested: "dont show song titles for these lessons, only show for play at your own pace, rehearsal and perform."
+              // Play at your own pace = 'play' type. Rehearsal/Perform = 'perform' type.
+              if (seq.type != 'play' && seq.type != 'perform') {
+                return const SizedBox.shrink();
+              }
+
               return Padding(
                 padding: const EdgeInsets.only(bottom: 8),
                 child: Text(
