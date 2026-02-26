@@ -235,17 +235,22 @@ class MovingNotationWidget extends StatelessWidget {
     final bool isPast = index < currentNoteIndex;
     final bool isWrong = isCurrent && wrongNote != null;
     
-    // Vertical Offsets
-    double yOffset = 0;
+    // Check for split notes (e.g., "D;D")
+    final bool isSplitNote = note.contains(';');
+    final List<String> subNotes = isSplitNote ? note.split(';') : [note];
     
-    switch (note) {
-      case 'C': yOffset = 48; break; // Ledger removed
-      case 'D': yOffset = 40; break;
-      case 'E': yOffset = 32; break;
-      case 'F': yOffset = 24; break;
-      case 'G': yOffset = 16; break;
-      case 'A': yOffset = 8; break;
-      case 'B': yOffset = 0; break;
+    // Vertical Offsets helper
+    double getOffset(String n) {
+      switch (n) {
+        case 'C': return 48;
+        case 'D': return 40;
+        case 'E': return 32;
+        case 'F': return 24;
+        case 'G': return 16;
+        case 'A': return 8;
+        case 'B': return 0;
+        default: return 0;
+      }
     }
 
     final color = isWrong 
@@ -258,31 +263,63 @@ class MovingNotationWidget extends StatelessWidget {
         // Debug Container to ensure stack takes space
         Container(color: Colors.transparent),
 
-        // Note Block
+        // Note Block(s)
         if (note != '-')
-          Center(
-            child: Transform.translate(
-               offset: Offset(0, yOffset),
-               child: Container(
-                 width: 100, // Reduced length as requested
-                 height: 16, // Height matches staff spacing (16.0)
-                 margin: EdgeInsets.zero,
-                 decoration: BoxDecoration(
-                   color: isPast ? color.withOpacity(0.5) : color, 
-                   borderRadius: BorderRadius.circular(4),
-                   border: isCurrent && !isWrong 
-                      ? Border.all(color: Colors.white, width: 2) 
-                      : null,
-                 ),
-                 child: Center(
-                   child: Text(
-                     note,
-                     style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+          if (isSplitNote)
+            Center(
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: subNotes.map((subNote) {
+                  final color = isWrong ? Colors.grey : (noteColors[subNote] ?? Colors.black);
+                  return Transform.translate(
+                    offset: Offset(0, getOffset(subNote)),
+                    child: Container(
+                      width: 45, // Half width for split notes, slightly smaller for gap
+                      height: 16,
+                      margin: const EdgeInsets.symmetric(horizontal: 2.5),
+                      decoration: BoxDecoration(
+                        color: isPast ? color.withOpacity(0.5) : color, 
+                        borderRadius: BorderRadius.circular(4),
+                        border: isCurrent && !isWrong 
+                           ? Border.all(color: Colors.white, width: 2) 
+                           : null,
+                      ),
+                      child: Center(
+                        child: Text(
+                          subNote,
+                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                        ),
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            )
+          else
+            Center(
+              child: Transform.translate(
+                 offset: Offset(0, getOffset(note)),
+                 child: Container(
+                   width: 100, // Regular length
+                   height: 16, // Height matches staff spacing (16.0)
+                   margin: EdgeInsets.zero,
+                   decoration: BoxDecoration(
+                     color: isPast ? (isWrong ? Colors.grey : (noteColors[note] ?? Colors.black)).withOpacity(0.5) : (isWrong ? Colors.grey : (noteColors[note] ?? Colors.black)), 
+                     borderRadius: BorderRadius.circular(4),
+                     border: isCurrent && !isWrong 
+                        ? Border.all(color: Colors.white, width: 2) 
+                        : null,
+                   ),
+                   child: Center(
+                     child: Text(
+                       note,
+                       style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                     ),
                    ),
                  ),
-               ),
+              ),
             ),
-          ),
 
         // Bar Line (Align is safer than Positioned sometimes)
         if (isFirstInMeasure)

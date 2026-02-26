@@ -74,6 +74,7 @@ flutter:
     - assets/audio/piano_level1/
     - assets/audio/piano_level2/
     - assets/audio/piano_level3/
+    - assets/audio/piano_level4/
     - assets/audio/guitar_notes/
 
 
