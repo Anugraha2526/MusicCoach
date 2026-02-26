@@ -1007,6 +1007,117 @@ class Command(BaseCommand):
                 time_signature=seq_data.get('time_signature', '4/4')
             )
 
+        # =====================
+        # LEVEL 5 - LESSON 3: PLAY AT YOUR OWN PACE (Old MacDonald)
+        # =====================
+        l5_lesson3, created = Lesson.objects.get_or_create(
+            module=module5,
+            order=3,
+            defaults={
+                'title': 'Play at your own pace',
+                'lesson_type': 'practice',
+            }
+        )
+        if created:
+            self.stdout.write(self.style.SUCCESS(f'Created lesson: {l5_lesson3.title}'))
+        else:
+            self.stdout.write(f'Lesson already exists: {l5_lesson3.title}')
+            l5_lesson3.sequences.all().delete()
+
+        self.stdout.write(f'Seeding sequences for "{l5_lesson3.title}"...')
+        
+        old_macdonald_notes = [
+            # Line 1-2
+            "F", "-", "-", "-", 
+            "-", "-", "-", "-", 
+            # Line 3-4
+            "F", "F", "F", "C", 
+            "D", "D", "C", "_", 
+            # Line 5-6
+            "A", "A", "G", "G", 
+            "F", "_", "-", "C", 
+            # Line 7-8
+            "F", "F", "F", "C", 
+            "D", "D", "C", "_", 
+            # Line 9-10
+            "A", "A", "G", "G", 
+            "F", "_", "-", "-", 
+            # Line 11-12
+            "F", "F", "F", "-", 
+            "F", "F", "F", "-", 
+            # Line 13-14
+            "F", "-", "F", "-", 
+            "F", "F", "F", "C", 
+            # Line 15-16
+            "F", "F", "F", "C", 
+            "D", "D", "C", "_", 
+            # Line 17-18
+            "A", "A", "G", "G", 
+            "F", "_", "-", "-", 
+        ]
+
+        PracticeSequence.objects.create(
+            lesson=l5_lesson3,
+            order=1,
+            sequence_type='play', 
+            notes=old_macdonald_notes,
+            time_signature='4/4'
+        )
+
+        # =====================
+        # LEVEL 5 - LESSON 4: REHEARSAL (Old MacDonald - Continuous)
+        # =====================
+        l5_lesson4, created = Lesson.objects.get_or_create(
+            module=module5,
+            order=4,
+            defaults={
+                'title': 'Rehearsal',
+                'lesson_type': 'practice',
+            }
+        )
+        if created:
+            self.stdout.write(self.style.SUCCESS(f'Created lesson: {l5_lesson4.title}'))
+        else:
+            self.stdout.write(f'Lesson already exists: {l5_lesson4.title}')
+            l5_lesson4.sequences.all().delete()
+
+        self.stdout.write(f'Seeding sequences for "{l5_lesson4.title}"...')
+        
+        PracticeSequence.objects.create(
+            lesson=l5_lesson4,
+            order=1,
+            sequence_type='perform', 
+            notes=old_macdonald_notes,
+            time_signature='4/4'
+        )
+
+        # =====================
+        # LEVEL 5 - LESSON 5: PERFORM OLD MACDONALD (Scored)
+        # =====================
+        l5_lesson5, created = Lesson.objects.get_or_create(
+            module=module5,
+            order=5,
+            defaults={
+                'title': 'Perform Old MacDonald',
+                'lesson_type': 'practice',
+            }
+        )
+        if created:
+            self.stdout.write(self.style.SUCCESS(f'Created lesson: {l5_lesson5.title}'))
+        else:
+            self.stdout.write(f'Lesson already exists: {l5_lesson5.title}')
+            l5_lesson5.sequences.all().delete()
+
+        self.stdout.write(f'Seeding sequences for "{l5_lesson5.title}"...')
+        
+        PracticeSequence.objects.create(
+            lesson=l5_lesson5,
+            order=1,
+            sequence_type='perform', 
+            notes=old_macdonald_notes,
+            time_signature='4/4'
+        )
+
         self.stdout.write(self.style.SUCCESS(f'Successfully seeded sequences for all lessons.'))
         
         self.stdout.write('')
@@ -1038,4 +1149,7 @@ class Command(BaseCommand):
         self.stdout.write(f'  - Module 5: {module5.title}')
         self.stdout.write(f'    - Lesson 1: {l5_lesson1.title} ({len(l5_lesson1_sequences)} seqs)')
         self.stdout.write(f'    - Lesson 2: {l5_lesson2.title} ({len(l5_lesson2_sequences)} seqs)')
+        self.stdout.write(f'    - Lesson 3: {l5_lesson3.title} (1 seqs)')
+        self.stdout.write(f'    - Lesson 4: {l5_lesson4.title}')
+        self.stdout.write(f'    - Lesson 5: {l5_lesson5.title}')
 

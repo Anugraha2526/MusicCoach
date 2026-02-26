@@ -128,6 +128,16 @@ class _InteractivePianoLessonScreenState extends State<InteractivePianoLessonScr
       scrollDurationMs: 562,
       performInstruction: 'Keep up with the music!',
     ),
+    _LessonConfig(
+      id: 'old_macdonald',
+      matchTitle: 'Old MacDonald',
+      matchFirstNote: 'F',
+      displayName: 'OLD MACDONALD',
+      headerColor: 'purple',
+      backtrackAsset: 'assets/audio/piano_level5/old_macdonald.mp3', // Note: assuming this file exists.
+      scrollDurationMs: 600, // Roughly a normal speed
+      performInstruction: 'Keep up with the music!',
+    ),
   ];
 
   /// Resolves the config for the current lesson. Title-based matches take priority
@@ -145,6 +155,9 @@ class _InteractivePianoLessonScreenState extends State<InteractivePianoLessonScr
       }
       if (seqString == 'C,-,-,-,E') {
         return _lessonConfigs.firstWhere((c) => c.id == 'cyanide');
+      }
+      if (seqString == 'F,-,-,-,-') {
+        return _lessonConfigs.firstWhere((c) => c.id == 'old_macdonald');
       }
       if (seqString == 'D,-,-,-,-') {
         return _lessonConfigs.firstWhere((c) => c.id == 'work_song');
@@ -827,8 +840,8 @@ class _InteractivePianoLessonScreenState extends State<InteractivePianoLessonScr
             final nextBlock = currentSeq.notes[currentNoteIndex];
             final nextTargetNote = nextBlock.contains(';') ? nextBlock.split(';').first : nextBlock;
 
-            if (nextBlock == '-') {
-               // Rest - auto-continue
+            if (nextBlock == '-' || nextBlock == '_') {
+               // Rest or Continuous Hold - auto-continue
                setState(() => highlightedKey = null);
                _startSmoothScroll();
             } else if (_autoAdvancePending && _earlyInputNote == nextTargetNote) {
