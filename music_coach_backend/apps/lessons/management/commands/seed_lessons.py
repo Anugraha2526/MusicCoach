@@ -914,6 +914,56 @@ class Command(BaseCommand):
             time_signature='4/4'
         )
 
+        # ==========================================
+        # MODULE 5: LEVEL 5
+        # ==========================================
+        module5, created = Module.objects.get_or_create(
+            order=5,
+            defaults={
+                'title': 'Level 5',
+                'description': 'Advanced Memory - Build your recall skills further',
+            }
+        )
+        if created:
+            self.stdout.write(self.style.SUCCESS(f'Created module: {module5.title}'))
+        else:
+            self.stdout.write(f'Module already exists: {module5.title}')
+
+        # =====================
+        # LEVEL 5 - LESSON 1: MEMORIZE (Simon Says)
+        # =====================
+        l5_lesson1, created = Lesson.objects.get_or_create(
+            module=module5,
+            order=1,
+            defaults={
+                'title': 'Memorize the melody',
+                'lesson_type': 'theory', 
+            }
+        )
+        if created:
+            self.stdout.write(self.style.SUCCESS(f'Created lesson: {l5_lesson1.title}'))
+        else:
+            self.stdout.write(f'Lesson already exists: {l5_lesson1.title}')
+            l5_lesson1.sequences.all().delete()
+
+        self.stdout.write(f'Seeding sequences for "{l5_lesson1.title}"...')
+        
+        l5_lesson1_sequences = [
+            {"order": 1, "notes": ["F", "F", "F"]},
+            {"order": 2, "notes": ["F", "F", "F", "C"]},
+            {"order": 3, "notes": ["F", "F", "F", "C", "D"]},
+            {"order": 4, "notes": ["F", "F", "F", "C", "D", "D"]},
+            {"order": 5, "notes": ["F", "F", "F", "C", "D", "D", "C"]},
+        ]
+
+        for seq_data in l5_lesson1_sequences:
+            PracticeSequence.objects.create(
+                lesson=l5_lesson1,
+                order=seq_data['order'],
+                sequence_type='listen',
+                notes=seq_data['notes']
+            )
+
         self.stdout.write(self.style.SUCCESS(f'Successfully seeded sequences for all lessons.'))
         
         self.stdout.write('')
@@ -942,4 +992,6 @@ class Command(BaseCommand):
         self.stdout.write(f'    - Lesson 3: {l4_lesson3.title} ({len(l4_lesson3_sequences)} seqs)')
         self.stdout.write(f'    - Lesson 4: {l4_lesson4.title}')
         self.stdout.write(f'    - Lesson 5: {l4_lesson5.title}')
+        self.stdout.write(f'  - Module 5: {module5.title}')
+        self.stdout.write(f'    - Lesson 1: {l5_lesson1.title} ({len(l5_lesson1_sequences)} seqs)')
 
