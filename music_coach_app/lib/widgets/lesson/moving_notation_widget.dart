@@ -257,119 +257,141 @@ class MovingNotationWidget extends StatelessWidget {
       }
     }
 
-    return Stack(
-      fit: StackFit.expand, // Force execution of children constraints
-      children: [
-        // Debug Container to ensure stack takes space
-        Container(color: Colors.transparent),
+    // Count how many '_' hold tokens follow this note
+    int countContinuousHolds(int startIndex) {
+      int count = 0;
+      for (int i = startIndex + 1; i < notes.length; i++) {
+        if (notes[i] == '_') count++;
+        else break;
+      }
+      return count;
+    }
 
-        // Note Block(s)
-        if (note != '-')
-          if (isSplitNote)
-            Center(
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: subNotes.asMap().entries.map((entry) {
-                  final int subIndex = entry.key;
-                  final String subNote = entry.value;
+    final int extraHolds = (note != '-' && note != '_') ? countContinuousHolds(index) : 0;
+    final double extraWidth = extraHolds * 100.0;
 
-                  bool isSubNotePast = isPast;
-                  if (isCurrent && isSplitNote) {
-                     if (subIndex == 0 && scrollProgress >= 0.5) isSubNotePast = true;
-                  }
-                  
-                  bool isSubNoteCredited = subIndex < creditedCount;
-                  bool isCurrentTarget = isCurrent && (!isSplitNote || subIndex == currentSplitProgress);
-                  
-                  Color finalColor = noteColors[subNote] ?? Colors.black;
-                  
-                  if (isCurrentTarget && wrongNote != null) {
-                      finalColor = Colors.grey; 
-                  } else if (isSubNotePast && !isSubNoteCredited) {
-                      finalColor = Colors.grey;
-                  } else if (isSubNotePast && isSubNoteCredited) {
-                      finalColor = finalColor.withOpacity(0.5);
-                  }
+    // Compute color for regular (non-split) notes
+    Color getNoteColor() {
+      Color finalColor = noteColors[note] ?? Colors.black;
+      bool isSubNotePast = isPast;
+      bool isSubNoteCredited = 0 < creditedCount;
+      bool isCurrentTarget = isCurrent;
+      
+      if (isCurrentTarget && wrongNote != null) {
+          finalColor = Colors.grey; 
+      } else if (isSubNotePast && !isSubNoteCredited) {
+          finalColor = Colors.grey;
+      } else if (isSubNotePast && isSubNoteCredited) {
+          finalColor = finalColor.withOpacity(0.5);
+      }
+      return finalColor;
+    }
 
-                  return Transform.translate(
-                    offset: Offset(0, getOffset(subNote)),
-                    child: Container(
-                      width: 45, // Half width for split notes, slightly smaller for gap
-                      height: 16,
-                      margin: const EdgeInsets.symmetric(horizontal: 2.5),
-                      decoration: BoxDecoration(
-                        color: finalColor, 
-                        borderRadius: BorderRadius.circular(4),
-                        border: isCurrentTarget && wrongNote == null
-                           ? Border.all(color: Colors.white, width: 2) 
-                           : null,
-                      ),
-                      child: Center(
-                        child: Text(
-                          subNote,
-                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
-                        ),
-                      ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final double cellHeight = constraints.maxHeight;
+        final double centerY = cellHeight / 2;
+
+        return Stack(
+          clipBehavior: Clip.none, // Allow stretched notes to overflow
+          children: [
+            // Ensure this cell takes up space
+            SizedBox(width: 100, height: cellHeight),
+
+            // Note Block(s) - use Positioned so StackFit doesn't constrain width
+            if (note != '-' && note != '_')
+              if (isSplitNote)
+                Positioned(
+                  left: 0,
+                  top: 0,
+                  bottom: 0,
+                  child: Center(
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: subNotes.asMap().entries.map((entry) {
+                        final int subIndex = entry.key;
+                        final String subNote = entry.value;
+
+                        bool isSubNotePast = isPast;
+                        if (isCurrent && isSplitNote) {
+                           if (subIndex == 0 && scrollProgress >= 0.5) isSubNotePast = true;
+                        }
+                        
+                        bool isSubNoteCredited = subIndex < creditedCount;
+                        bool isCurrentTarget = isCurrent && (!isSplitNote || subIndex == currentSplitProgress);
+                        
+                        Color finalColor = noteColors[subNote] ?? Colors.black;
+                        
+                        if (isCurrentTarget && wrongNote != null) {
+                            finalColor = Colors.grey; 
+                        } else if (isSubNotePast && !isSubNoteCredited) {
+                            finalColor = Colors.grey;
+                        } else if (isSubNotePast && isSubNoteCredited) {
+                            finalColor = finalColor.withOpacity(0.5);
+                        }
+
+                        return Transform.translate(
+                          offset: Offset(0, getOffset(subNote)),
+                          child: Container(
+                            width: 45,
+                            height: 16,
+                            margin: const EdgeInsets.symmetric(horizontal: 2.5),
+                            decoration: BoxDecoration(
+                              color: finalColor, 
+                              borderRadius: BorderRadius.circular(4),
+                              border: isCurrentTarget && wrongNote == null
+                                 ? Border.all(color: Colors.white, width: 2) 
+                                 : null,
+                            ),
+                            child: Center(
+                              child: Text(
+                                subNote,
+                                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                              ),
+                            ),
+                          ),
+                        );
+                      }).toList(),
                     ),
-                  );
-                }).toList(),
-              ),
-            )
-          else
-            Center(
-              child: Transform.translate(
-                 offset: Offset(0, getOffset(note)),
-                 child: Builder(
-                   builder: (context) {
-                     bool isSubNotePast = isPast;
-                     bool isSubNoteCredited = 0 < creditedCount; 
-                     bool isCurrentTarget = isCurrent;
-                     
-                     Color finalColor = noteColors[note] ?? Colors.black;
-                     
-                     if (isCurrentTarget && wrongNote != null) {
-                         finalColor = Colors.grey; 
-                     } else if (isSubNotePast && !isSubNoteCredited) {
-                         finalColor = Colors.grey;
-                     } else if (isSubNotePast && isSubNoteCredited) {
-                         finalColor = finalColor.withOpacity(0.5);
-                     }
-                     
-                     return Container(
-                       width: 100, // Regular length
-                       height: 16, // Height matches staff spacing (16.0)
-                       margin: EdgeInsets.zero,
-                       decoration: BoxDecoration(
-                         color: finalColor, 
-                         borderRadius: BorderRadius.circular(4),
-                         border: isCurrentTarget && wrongNote == null
-                            ? Border.all(color: Colors.white, width: 2) 
-                            : null,
-                       ),
-                       child: Center(
-                         child: Text(
-                           note,
-                           style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
-                         ),
-                       ),
-                     );
-                   }
-                 ),
-              ),
-            ),
+                  ),
+                )
+              else
+                // Regular note (possibly stretched for continuous holds)
+                Positioned(
+                  left: 0,
+                  top: centerY + getOffset(note) - 8, // center vertically: -8 = half of 16px height
+                  child: Container(
+                    width: 100 + extraWidth,
+                    height: 16,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: getNoteColor(), 
+                      borderRadius: BorderRadius.circular(4),
+                      border: isCurrent && wrongNote == null
+                         ? Border.all(color: Colors.white, width: 2) 
+                         : null,
+                    ),
+                    child: Text(
+                      note,
+                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                    ),
+                  ),
+                ),
 
-        // Bar Line (Align is safer than Positioned sometimes)
-        if (isFirstInMeasure)
-          Align(
-             alignment: Alignment.centerLeft,
-             child: Container(
-               width: 4, 
-               height: 64, // Matches exact staff height (4 spaces * 16px)
-               color: Colors.black,
-             ),
-          ),
-      ],
+            // Bar Line
+            if (isFirstInMeasure)
+              Positioned(
+                left: 0,
+                top: centerY - 32, // half of 64px staff height
+                child: Container(
+                  width: 4, 
+                  height: 64,
+                  color: Colors.black,
+                ),
+              ),
+          ],
+        );
+      },
     );
   }
 }
