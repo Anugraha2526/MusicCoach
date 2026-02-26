@@ -11,6 +11,8 @@ class MovingNotationWidget extends StatelessWidget {
   final String? wrongNote;
   final double scrollProgress;
   final String timeSignature; // New field
+  final Map<int, int> creditedSplitNotes;
+  final int currentSplitProgress;
 
   const MovingNotationWidget({
     super.key,
@@ -19,6 +21,8 @@ class MovingNotationWidget extends StatelessWidget {
     this.wrongNote,
     this.scrollProgress = 0.0,
     this.timeSignature = '4/4',
+    this.creditedSplitNotes = const {},
+    this.currentSplitProgress = 0,
   });
 
   // Colors
@@ -233,7 +237,7 @@ class MovingNotationWidget extends StatelessWidget {
     // Note Positioning Logic
     final bool isCurrent = index == currentNoteIndex;
     final bool isPast = index < currentNoteIndex;
-    final bool isWrong = isCurrent && wrongNote != null;
+    final int creditedCount = isCurrent ? currentSplitProgress : (creditedSplitNotes[index] ?? 0);
     
     // Check for split notes (e.g., "D;D")
     final bool isSplitNote = note.contains(';');
@@ -253,10 +257,6 @@ class MovingNotationWidget extends StatelessWidget {
       }
     }
 
-    final color = isWrong 
-        ? Colors.grey 
-        : (noteColors[note] ?? Colors.black);
-    
     return Stack(
       fit: StackFit.expand, // Force execution of children constraints
       children: [
@@ -270,8 +270,28 @@ class MovingNotationWidget extends StatelessWidget {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: subNotes.map((subNote) {
-                  final color = isWrong ? Colors.grey : (noteColors[subNote] ?? Colors.black);
+                children: subNotes.asMap().entries.map((entry) {
+                  final int subIndex = entry.key;
+                  final String subNote = entry.value;
+
+                  bool isSubNotePast = isPast;
+                  if (isCurrent && isSplitNote) {
+                     if (subIndex == 0 && scrollProgress >= 0.5) isSubNotePast = true;
+                  }
+                  
+                  bool isSubNoteCredited = subIndex < creditedCount;
+                  bool isCurrentTarget = isCurrent && (!isSplitNote || subIndex == currentSplitProgress);
+                  
+                  Color finalColor = noteColors[subNote] ?? Colors.black;
+                  
+                  if (isCurrentTarget && wrongNote != null) {
+                      finalColor = Colors.grey; 
+                  } else if (isSubNotePast && !isSubNoteCredited) {
+                      finalColor = Colors.grey;
+                  } else if (isSubNotePast && isSubNoteCredited) {
+                      finalColor = finalColor.withOpacity(0.5);
+                  }
+
                   return Transform.translate(
                     offset: Offset(0, getOffset(subNote)),
                     child: Container(
@@ -279,9 +299,9 @@ class MovingNotationWidget extends StatelessWidget {
                       height: 16,
                       margin: const EdgeInsets.symmetric(horizontal: 2.5),
                       decoration: BoxDecoration(
-                        color: isPast ? color.withOpacity(0.5) : color, 
+                        color: finalColor, 
                         borderRadius: BorderRadius.circular(4),
-                        border: isCurrent && !isWrong 
+                        border: isCurrentTarget && wrongNote == null
                            ? Border.all(color: Colors.white, width: 2) 
                            : null,
                       ),
@@ -300,23 +320,41 @@ class MovingNotationWidget extends StatelessWidget {
             Center(
               child: Transform.translate(
                  offset: Offset(0, getOffset(note)),
-                 child: Container(
-                   width: 100, // Regular length
-                   height: 16, // Height matches staff spacing (16.0)
-                   margin: EdgeInsets.zero,
-                   decoration: BoxDecoration(
-                     color: isPast ? (isWrong ? Colors.grey : (noteColors[note] ?? Colors.black)).withOpacity(0.5) : (isWrong ? Colors.grey : (noteColors[note] ?? Colors.black)), 
-                     borderRadius: BorderRadius.circular(4),
-                     border: isCurrent && !isWrong 
-                        ? Border.all(color: Colors.white, width: 2) 
-                        : null,
-                   ),
-                   child: Center(
-                     child: Text(
-                       note,
-                       style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
-                     ),
-                   ),
+                 child: Builder(
+                   builder: (context) {
+                     bool isSubNotePast = isPast;
+                     bool isSubNoteCredited = 0 < creditedCount; 
+                     bool isCurrentTarget = isCurrent;
+                     
+                     Color finalColor = noteColors[note] ?? Colors.black;
+                     
+                     if (isCurrentTarget && wrongNote != null) {
+                         finalColor = Colors.grey; 
+                     } else if (isSubNotePast && !isSubNoteCredited) {
+                         finalColor = Colors.grey;
+                     } else if (isSubNotePast && isSubNoteCredited) {
+                         finalColor = finalColor.withOpacity(0.5);
+                     }
+                     
+                     return Container(
+                       width: 100, // Regular length
+                       height: 16, // Height matches staff spacing (16.0)
+                       margin: EdgeInsets.zero,
+                       decoration: BoxDecoration(
+                         color: finalColor, 
+                         borderRadius: BorderRadius.circular(4),
+                         border: isCurrentTarget && wrongNote == null
+                            ? Border.all(color: Colors.white, width: 2) 
+                            : null,
+                       ),
+                       child: Center(
+                         child: Text(
+                           note,
+                           style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                         ),
+                       ),
+                     );
+                   }
                  ),
               ),
             ),

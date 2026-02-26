@@ -847,6 +847,73 @@ class Command(BaseCommand):
                 time_signature=seq_data.get('time_signature', '4/4')
             )
 
+        # =====================
+        # LEVEL 4 - LESSON 4: REHEARSAL (Cyanide - Continuous)
+        # =====================
+        l4_lesson4, created = Lesson.objects.get_or_create(
+            module=module4,
+            order=4,
+            defaults={
+                'title': 'Rehearsal',
+                'lesson_type': 'practice',
+            }
+        )
+        if created:
+            self.stdout.write(self.style.SUCCESS(f'Created lesson: {l4_lesson4.title}'))
+        else:
+            self.stdout.write(f'Lesson already exists: {l4_lesson4.title}')
+            l4_lesson4.sequences.all().delete()
+
+        self.stdout.write(f'Seeding sequences for "{l4_lesson4.title}"...')
+        
+        # Cyanide Sequence (Perform Mode - Continuous Play)
+        cyanide_notes = [
+            "C", "-", "-", "-", 
+            "E", "C", "D;D", "-", 
+            "E", "C", "D;D", "-", 
+            "D;D", "D;D", "D", "-", 
+            "D;D", "D;D", "D", "-", 
+            "E", "C", "D;D", "-", 
+            "-", "-", "-", "-", 
+            "E", "C", "D", "-", 
+            "C", "-", "-", "-", 
+        ]
+
+        PracticeSequence.objects.create(
+            lesson=l4_lesson4,
+            order=1,
+            sequence_type='perform', 
+            notes=cyanide_notes,
+            time_signature='4/4'
+        )
+
+        # =====================
+        # LEVEL 4 - LESSON 5: PERFORM CYANIDE (Scored)
+        # =====================
+        l4_lesson5, created = Lesson.objects.get_or_create(
+            module=module4,
+            order=5,
+            defaults={
+                'title': 'Perform Cyanide',
+                'lesson_type': 'practice',
+            }
+        )
+        if created:
+            self.stdout.write(self.style.SUCCESS(f'Created lesson: {l4_lesson5.title}'))
+        else:
+            self.stdout.write(f'Lesson already exists: {l4_lesson5.title}')
+            l4_lesson5.sequences.all().delete()
+
+        self.stdout.write(f'Seeding sequences for "{l4_lesson5.title}"...')
+        
+        PracticeSequence.objects.create(
+            lesson=l4_lesson5,
+            order=1,
+            sequence_type='perform', 
+            notes=cyanide_notes,
+            time_signature='4/4'
+        )
+
         self.stdout.write(self.style.SUCCESS(f'Successfully seeded sequences for all lessons.'))
         
         self.stdout.write('')
@@ -873,4 +940,6 @@ class Command(BaseCommand):
         self.stdout.write(f'    - Lesson 1: {l4_lesson1.title} ({len(l4_lesson1_sequences)} seqs)')
         self.stdout.write(f'    - Lesson 2: {l4_lesson2.title} ({len(l4_lesson2_sequences)} seqs)')
         self.stdout.write(f'    - Lesson 3: {l4_lesson3.title} ({len(l4_lesson3_sequences)} seqs)')
+        self.stdout.write(f'    - Lesson 4: {l4_lesson4.title}')
+        self.stdout.write(f'    - Lesson 5: {l4_lesson5.title}')
 
