@@ -63,6 +63,7 @@ class _InteractivePianoLessonScreenState extends State<InteractivePianoLessonScr
   
   // Track split note progress
   int _splitNoteProgress = 0; // How many parts of the split note have been played
+  Map<int, int> _creditedSplitNotes = {}; // Tracks how many parts of a split note were correctly hit
 
   
   // Audio (SoLoud)
@@ -124,7 +125,7 @@ class _InteractivePianoLessonScreenState extends State<InteractivePianoLessonScr
       displayName: 'CYANIDE',
       headerColor: 'cyan',
       backtrackAsset: 'assets/audio/piano_level4/cyanide.mp3',
-      scrollDurationMs: 535,
+      scrollDurationMs: 562,
       performInstruction: 'Keep up with the music!',
     ),
   ];
@@ -135,6 +136,24 @@ class _InteractivePianoLessonScreenState extends State<InteractivePianoLessonScr
     if (sequences.isEmpty) return null;
     final firstNote = sequences.first.notes.isNotEmpty ? sequences.first.notes.first : '';
     final title = widget.lessonTitle ?? '';
+
+    // Advanced signature match for ambiguous "Rehearsal" or "Perform" lessons
+    if (title.contains('Rehearsal') || title.contains('Perform')) {
+      final seqString = sequences.first.notes.take(5).join(',');
+      if (seqString == 'C,-,-,-,-') {
+        return _lessonConfigs.firstWhere((c) => c.id == 'three_blind_mice');
+      }
+      if (seqString == 'C,-,-,-,E') {
+        return _lessonConfigs.firstWhere((c) => c.id == 'cyanide');
+      }
+      if (seqString == 'D,-,-,-,-') {
+        return _lessonConfigs.firstWhere((c) => c.id == 'work_song');
+      }
+      if (seqString == 'E,-,-,-,E') {
+        // Hot Cross Buns - fallback if we had a config for it, but currently not in the list.
+        // Assuming no strict config is needed or it's implicitly handled.
+      }
+    }
 
     // Priority 1: Match by title + first note (most specific)
     for (final cfg in _lessonConfigs) {
@@ -332,6 +351,7 @@ class _InteractivePianoLessonScreenState extends State<InteractivePianoLessonScr
          scrollProgress = 0.0;
          _creditedIndices.clear();
          _splitNoteProgress = 0;
+         _creditedSplitNotes.clear();
        }
     });
 
@@ -526,21 +546,35 @@ class _InteractivePianoLessonScreenState extends State<InteractivePianoLessonScr
              _startSmoothScroll();
         }
 
-        final expectedNote = currentSeq.notes[currentNoteIndex];
+        final expectedNoteBlock = currentSeq.notes[currentNoteIndex];
+        final bool isSplitNote = expectedNoteBlock.contains(';');
+        final List<String> subNotes = isSplitNote ? expectedNoteBlock.split(';') : [expectedNoteBlock];
         
-        // 1. Check if input matches CURRENT note
-        if (note == expectedNote) {
-           setState(() {
-             wrongNote = null;
-             _creditedIndices.add(currentNoteIndex);
-           });
-           return;
-        } 
+        // Target is the NEXT unplayed part of this split block
+        if (_splitNoteProgress < subNotes.length) {
+            final targetSubNote = subNotes[_splitNoteProgress];
+            
+            // 1. Check if input matches CURRENT target sub-note
+            if (note == targetSubNote) {
+               setState(() {
+                 wrongNote = null;
+                 _splitNoteProgress++;
+                 _creditedSplitNotes[currentNoteIndex] = _splitNoteProgress;
+                 
+                 if (!isSplitNote || _splitNoteProgress >= subNotes.length) {
+                    _creditedIndices.add(currentNoteIndex); // Full credit
+                 }
+                 highlightedKey = null; // Clear highlight to show hit
+               });
+               return;
+            } 
+        }
         
         // 2. Check if input matches NEXT note (Early Press Tolerance)
         if (currentNoteIndex + 1 < currentSeq.notes.length) {
-            final nextNote = currentSeq.notes[currentNoteIndex + 1];
-            if (note == nextNote && _noteStartTime != null) {
+            final nextBlock = currentSeq.notes[currentNoteIndex + 1];
+            final nextTargetNote = nextBlock.contains(';') ? nextBlock.split(';').first : nextBlock;
+            if (note == nextTargetNote && _noteStartTime != null) {
                  // Calculate if we are close enough to the end of current note
                  final elapsed = DateTime.now().difference(_noteStartTime!).inMilliseconds;
                  final scrollDurationMs = _lessonScrollDuration;
@@ -550,7 +584,10 @@ class _InteractivePianoLessonScreenState extends State<InteractivePianoLessonScr
                  if (remainingMs > 0 && remainingMs <= inputToleranceMs) {
                       setState(() {
                         wrongNote = null;
-                        _creditedIndices.add(currentNoteIndex + 1); // Pre-credit the next note
+                        if (!nextBlock.contains(';')) {
+                           _creditedIndices.add(currentNoteIndex + 1); // Pre-credit the whole next block
+                        }
+                        _creditedSplitNotes[currentNoteIndex + 1] = 1; // Credit the first sub-note
                       });
                       return;
                  }
@@ -582,6 +619,7 @@ class _InteractivePianoLessonScreenState extends State<InteractivePianoLessonScr
             if (note == targetSubNote) {
                 setState(() {
                   _splitNoteProgress++;
+                  _creditedSplitNotes[currentNoteIndex] = _splitNoteProgress;
                   wrongNote = null;
                   highlightedKey = null;
                 });
@@ -639,6 +677,7 @@ class _InteractivePianoLessonScreenState extends State<InteractivePianoLessonScr
       // Correct note!
       setState(() {
         _splitNoteProgress++;
+        _creditedSplitNotes[currentNoteIndex] = _splitNoteProgress;
         wrongNote = null;
         highlightedKey = null;
       });
@@ -727,22 +766,32 @@ class _InteractivePianoLessonScreenState extends State<InteractivePianoLessonScr
         
       // Splitting Note Stop Logic: WAIT in the middle if we haven't pressed the second note
       final bool isSplitNote = currentSeq.notes[currentNoteIndex].contains(';');
-      if (isSplitNote && _splitNoteProgress == 1 && newProgress >= 0.5) {
-          timer.cancel();
-          stopwatch.stop();
-          _scrollTimer = null;
-          _noteStartTime = null;
+      if (isSplitNote && newProgress >= 0.5) {
+          // Update visual highlight halfway for all modes
+          final nextSubNote = currentSeq.notes[currentNoteIndex].split(';')[1];
+          if (highlightedKey != nextSubNote && _splitNoteProgress < 2) {
+              setState(() {
+                highlightedKey = nextSubNote;
+              });
+          }
 
-          _stopBacktrackAudio();
-          
-          // Use ValueNotifier so the drawing halts exactly halfway (gap between the split notes)
-          _scrollProgressNotifier.value = 0.5;
-          
-          setState(() {
-            scrollProgress = 0.5; // Update state representation too
-            highlightedKey = currentSeq.notes[currentNoteIndex].split(';')[1];
-          });
-          return;
+          // ONLY stop and wait if we are in 'play' mode and waiting for second tap
+          if (currentSeq.type == 'play' && _splitNoteProgress == 1) {
+              timer.cancel();
+              stopwatch.stop();
+              _scrollTimer = null;
+              _noteStartTime = null;
+
+              _stopBacktrackAudio();
+              
+              // Use ValueNotifier so the drawing halts exactly halfway (gap between the split notes)
+              _scrollProgressNotifier.value = 0.5;
+              
+              setState(() {
+                scrollProgress = 0.5; // Update state representation too
+              });
+              return;
+          }
       }
         
       if (newProgress >= 1.0) {
@@ -1093,6 +1142,8 @@ class _InteractivePianoLessonScreenState extends State<InteractivePianoLessonScr
                                   wrongNote: wrongNote,
                                   scrollProgress: progress,
                                   timeSignature: currentSeq.timeSignature,
+                                  creditedSplitNotes: _creditedSplitNotes,
+                                  currentSplitProgress: _splitNoteProgress,
                                 );
                               },
                             ),
