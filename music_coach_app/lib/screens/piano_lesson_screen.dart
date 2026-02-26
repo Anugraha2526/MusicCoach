@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'interactive_piano_lesson.dart';
 import '../services/lesson_service.dart';
 import '../models/lesson_models.dart';
+import '../services/progress_service.dart';
 
 class PianoLessonScreen extends StatefulWidget {
   const PianoLessonScreen({super.key});
@@ -24,11 +25,12 @@ class _PianoLessonScreenState extends State<PianoLessonScreen>
 
   List<LessonModule> _backendModules = [];
   bool _isLoading = true;
+  Set<int> _completedLessons = {};
 
-  // Generate all lessons placeholders (Level 1 first, going up to Level 10)
+  // Generate all lessons placeholders (Level 1 first, going up to Level 5)
   List<LessonPlaceholder> get _lessonPlaceholders {
     final placeholders = <LessonPlaceholder>[];
-    for (int level = 1; level <= 10; level++) {
+    for (int level = 1; level <= 5; level++) {
       for (int lessonIndex = 0; lessonIndex < 5; lessonIndex++) {
         placeholders.add(LessonPlaceholder(
           level: level,
@@ -54,10 +56,12 @@ class _PianoLessonScreenState extends State<PianoLessonScreen>
   Future<void> _loadLessons() async {
     try {
       final modules = await LessonService.fetchModules();
+      final completed = await ProgressService.getCompletedLessons();
       
       if (mounted) {
         setState(() {
           _backendModules = modules;
+          _completedLessons = completed;
           _isLoading = false;
         });
       }
@@ -77,17 +81,38 @@ class _PianoLessonScreenState extends State<PianoLessonScreen>
     super.dispose();
   }
 
-  void _onLessonTap(int placeholderIndex, LessonItem? backendLesson) {
+  Future<void> _loadProgress() async {
+    final completed = await ProgressService.getCompletedLessons();
+    if (mounted) {
+      setState(() {
+         _completedLessons = completed;
+      });
+    }
+  }
+
+  void _onLessonTap(int placeholderIndex, LessonItem? backendLesson, bool isLocked, {bool isJump = false, int? targetLevel, int? targetLessonIndex, List<LessonModule>? allModules}) {
     setState(() {
       if (selectedLessonIndex == placeholderIndex) {
-        if (backendLesson != null) { 
+        if (backendLesson != null && (!isLocked || isJump)) { 
           Navigator.push(
             context,
             MaterialPageRoute(
               builder: (context) => InteractivePianoLessonScreen(
                 lessonId: backendLesson!.id,
                 lessonTitle: backendLesson.title,
+                targetLevel: targetLevel,
+                targetLessonIndex: targetLessonIndex,
+                allModules: allModules,
               ),
+            ),
+          ).then((_) {
+             _loadProgress();
+          });
+        } else if (isLocked && backendLesson != null && !isJump) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Complete the previous level to unlock this lesson!'),
+              backgroundColor: Colors.orange,
             ),
           );
         } else {
@@ -194,7 +219,7 @@ class _PianoLessonScreenState extends State<PianoLessonScreen>
       backgroundColor: const Color(0xFF0A1929),
       body: Builder(
         builder: (context) {
-          final contentHeight = placeholders.length * 160.0 + (10 * 100.0) + 400;
+          final contentHeight = placeholders.length * 160.0 + (5 * 100.0) + 200;
           return SingleChildScrollView(
             controller: _scrollController,
             reverse: false,
@@ -214,9 +239,12 @@ class _PianoLessonScreenState extends State<PianoLessonScreen>
                     ),
                   ),
                   // Level headers
-                  ...List.generate(10, (levelIndex) {
+                  ...List.generate(6, (levelIndex) {
                     final level = levelIndex + 1;
                     final labelY = _getLevelLabelY(level, contentHeight);
+                    
+                    final String headerText = level == 6 ? 'COMING SOON' : 'LEVEL $level';
+                    
                     return Positioned(
                       left: 0,
                       right: 0,
@@ -241,7 +269,7 @@ class _PianoLessonScreenState extends State<PianoLessonScreen>
                                   ],
                                 ),
                                 child: Text(
-                                  'LEVEL $level',
+                                  headerText,
                                   style: TextStyle(
                                     color: Colors.white.withOpacity(0.9),
                                     fontSize: 14,
@@ -276,17 +304,77 @@ class _PianoLessonScreenState extends State<PianoLessonScreen>
                       }
                     }
 
+                    bool isLevelUnlocked = placeholder.level == 1;
+                    if (placeholder.level > 1) {
+                      final prevModule = _backendModules.firstWhere(
+                        (m) => m.order == placeholder.level - 1,
+                        orElse: () => LessonModule(id: -1, title: '', description: '', order: -1, lessons: []),
+                      );
+                      if (prevModule.id != -1 && prevModule.lessons.isNotEmpty) {
+                         // Unlock if the last lesson of the previous level is completed
+                         isLevelUnlocked = _completedLessons.contains(prevModule.lessons.last.id);
+                      }
+                    }
+
+                    // Jump logic: Lesson 1 of any level is always "playable" for jumping
+                    final bool isJumpable = !isLevelUnlocked && placeholder.index == 0;
+                    final bool isEffectivelyPlayable = backendLesson != null && (isLevelUnlocked || isJumpable);
+
                     final position = _getLessonPosition(index, screenWidth, contentHeight);
                     
                     return Positioned(
                       left: position.dx - 60, // Wider for text
-                      top: position.dy - 40,
-                      child: _AnimatedLessonButton(
-                        lessonTitle: backendLesson?.title ?? '?',
-                        pianoColor: _pianoColor,
-                        isAvailable: backendLesson != null,
-                        isSelected: selectedLessonIndex == index,
-                        onTap: () => _onLessonTap(index, backendLesson),
+                      top: position.dy - 60, // Moved up to accommodate jump text
+                      child: Stack(
+                        clipBehavior: Clip.none,
+                        alignment: Alignment.center,
+                        children: [
+                          _AnimatedLessonButton(
+                            lessonTitle: backendLesson?.title ?? '?',
+                            pianoColor: _pianoColor,
+                            isAvailable: isEffectivelyPlayable,
+                            isSelected: selectedLessonIndex == index,
+                            onTap: () => _onLessonTap(
+                              index, 
+                              backendLesson, 
+                              !isLevelUnlocked, 
+                              isJump: isJumpable,
+                              targetLevel: placeholder.level,
+                              targetLessonIndex: placeholder.index,
+                              allModules: _backendModules,
+                            ),
+                          ),
+                          if (isJumpable)
+                            Positioned(
+                              top: -24,
+                              child: AnimatedOpacity(
+                                duration: const Duration(milliseconds: 300),
+                                opacity: selectedLessonIndex == index ? 0.0 : 1.0, 
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: Colors.orangeAccent,
+                                    borderRadius: BorderRadius.circular(12),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.orange.withOpacity(0.5),
+                                        blurRadius: 4,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ],
+                                  ),
+                                  child: const Text(
+                                    'Jump here',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 10,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                        ],
                       ),
                     );
                   }).toList(),

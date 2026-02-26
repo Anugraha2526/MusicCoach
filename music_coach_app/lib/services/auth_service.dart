@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../config/api_config.dart';
+import 'progress_service.dart';
 
 class AuthService { 
   static const String _onboardingKey = 'onboarding_completed';
@@ -46,6 +47,9 @@ class AuthService {
       await prefs.setString('access_token', accessToken);
       await prefs.setString('refresh_token', refreshToken);
       await prefs.setBool(_onboardingKey, true); // Assume logging in means already onboarded
+      
+      // Fetch progress from backend immediately
+      await ProgressService.fetchFromBackend();
       return true;
     }
     return false;
@@ -64,6 +68,7 @@ class AuthService {
     await prefs.remove('access_token');
     await prefs.remove('refresh_token');
     await prefs.remove(_onboardingKey); // Reset onboarding on logout
+    await ProgressService.clearProgress(); // Clear local lesson progress
   }
 
   // Onboarding: check if completed

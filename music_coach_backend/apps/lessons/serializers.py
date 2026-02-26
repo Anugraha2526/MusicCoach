@@ -36,3 +36,11 @@ class ModuleSerializer(serializers.ModelSerializer):
     class Meta:
         model = Module
         fields = ['id', 'title', 'description', 'order', 'lessons']
+
+
+class UserProgressSerializer(serializers.Serializer):
+    """Serializer for user progress, returning a list of lesson IDs."""
+    completed_lesson_ids = serializers.SerializerMethodField()
+
+    def get_completed_lesson_ids(self, obj):
+        return list(obj.completed_lessons.values_list('id', flat=True))
