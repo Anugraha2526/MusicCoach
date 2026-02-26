@@ -49,13 +49,14 @@ class ColoredNotationWidget extends StatelessWidget {
         ],
       ),
       child: SizedBox(
-        height: staffHeight + 40, // Extra room for notes above/below staff
+        // height: staffHeight + 3 lines of space below + top padding
+        height: staffHeight + (3 * lineSpacing) + 30, // 3 gaps = 3 * lineSpacing. 30 for padding/notes.
         child: Stack(
           clipBehavior: Clip.none,
           children: [
             // Staff Lines (5 horizontal lines spanning full width)
             ...List.generate(5, (i) {
-              final y = 20.0 + i * lineSpacing; // 20px top padding
+              final y = 10.0 + i * lineSpacing; // 10px top padding (reduced from 20)
               return Positioned(
                 left: 0,
                 right: 0,
@@ -130,7 +131,7 @@ class ColoredNotationWidget extends StatelessWidget {
                     progress: isCurrent
                         ? currentProgress
                         : (isCompleted ? 1.0 : 0.0),
-                    staffTopPadding: 20.0,
+                    staffTopPadding: 10.0,
                     lineSpacing: lineSpacing,
                     noteStep: noteStep,
                   );

@@ -71,11 +71,11 @@ class _StaffPlaceWidgetState extends State<StaffPlaceWidget> {
         final totalHeight = constraints.maxHeight;
         
         // Adjust proportions based on the image
-        // 1. Line spacing is larger relative to the whole height
-        const double lineSpacing = 36.0; 
-        const double noteStep = lineSpacing / 2; // 18px per note step
-        final staffHeight = 4 * lineSpacing; // 144px for 5 lines
-        final staffTop = (totalHeight - staffHeight) / 2;
+        // 1. Line spacing is smaller height wise
+        const double lineSpacing = 30.0; 
+        const double noteStep = lineSpacing / 2; // 15px per note step
+        final staffHeight = 4 * lineSpacing; // 120px for 5 lines
+        final staffTop = (totalHeight - staffHeight) / 2 - 20; // Moved slightly upside
         
         // Horizontal centering
         // To place the entire section in the exact middle, we center the content width
@@ -84,8 +84,8 @@ class _StaffPlaceWidgetState extends State<StaffPlaceWidget> {
         
         // Dashed circle area bounds
         const double circleAreaWidth = 90;
-        // Center the dashed box slightly right of true center to balance the treble clef visually
-        final circleAreaLeft = sidePadding + (contentWidth / 2) - (circleAreaWidth / 2) + 20;
+        // Shift dashed box to the right by about a treble clef width (approx 60-80px)
+        final circleAreaLeft = (totalWidth / 2) - (circleAreaWidth / 2) + 70;
         
         // Calculate note positions
         final currentY = _noteY(_currentNoteIndex, staffTop, noteStep) + _dragOffset;
