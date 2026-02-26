@@ -60,6 +60,9 @@ class _InteractivePianoLessonScreenState extends State<InteractivePianoLessonScr
   DateTime? _noteStartTime; // When current note started scrolling
   String? _earlyInputNote; // Queued early input
   bool _autoAdvancePending = false; // Flag for early input auto-advance
+  
+  // Track split note progress
+  int _splitNoteProgress = 0; // How many parts of the split note have been played
 
   
   // Audio (SoLoud)
@@ -80,6 +83,80 @@ class _InteractivePianoLessonScreenState extends State<InteractivePianoLessonScr
   // Tap mode state
   bool _tapCooldown = false; // Blocks input for 2s after correct tap
   int _tapFilledCount = 0;   // How many circles are filled
+
+  // ======== CENTRALIZED LESSON CONFIG ========
+  // Add new lessons here — everything else resolves automatically.
+  static const List<_LessonConfig> _lessonConfigs = [
+    _LessonConfig(
+      id: 'hot_cross_buns',
+      matchTitle: null,
+      matchFirstNote: 'E',
+      displayName: 'HOT CROSS BUNS',
+      headerColor: 'green',
+      backtrackAsset: 'assets/audio/piano_level1/hot_cross_buns.mp3',
+      scrollDurationMs: 1189,
+      performInstruction: 'Keep up with the music!',
+    ),
+    _LessonConfig(
+      id: 'work_song',
+      matchTitle: null,
+      matchFirstNote: 'D',
+      displayName: 'WORK SONG',
+      headerColor: 'amber',
+      backtrackAsset: 'assets/audio/piano_level2/work_song.mp3',
+      scrollDurationMs: 480,
+      performInstruction: 'Play the Work Song!',
+    ),
+    _LessonConfig(
+      id: 'three_blind_mice',
+      matchTitle: 'Three Blind Mice',
+      matchFirstNote: null,
+      displayName: 'THREE BLIND MICE',
+      headerColor: 'red',
+      backtrackAsset: 'assets/audio/piano_level3/three_blind_mice.mp3',
+      scrollDurationMs: 529,
+      performInstruction: 'Keep up with the music!',
+    ),
+    _LessonConfig(
+      id: 'cyanide',
+      matchTitle: 'Play at your own pace',
+      matchFirstNote: 'C',
+      displayName: 'CYANIDE',
+      headerColor: 'cyan',
+      backtrackAsset: 'assets/audio/piano_level4/cyanide.mp3',
+      scrollDurationMs: 535,
+      performInstruction: 'Keep up with the music!',
+    ),
+  ];
+
+  /// Resolves the config for the current lesson. Title-based matches take priority
+  /// over first-note-only matches to avoid ambiguity (e.g. two songs starting with C).
+  _LessonConfig? _resolveLessonConfig() {
+    if (sequences.isEmpty) return null;
+    final firstNote = sequences.first.notes.isNotEmpty ? sequences.first.notes.first : '';
+    final title = widget.lessonTitle ?? '';
+
+    // Priority 1: Match by title + first note (most specific)
+    for (final cfg in _lessonConfigs) {
+      if (cfg.matchTitle != null && cfg.matchFirstNote != null &&
+          title.contains(cfg.matchTitle!) && firstNote == cfg.matchFirstNote) {
+        return cfg;
+      }
+    }
+    // Priority 2: Match by title only
+    for (final cfg in _lessonConfigs) {
+      if (cfg.matchTitle != null && cfg.matchFirstNote == null && title.contains(cfg.matchTitle!)) {
+        return cfg;
+      }
+    }
+    // Priority 3: Match by first note only (fallback)
+    for (final cfg in _lessonConfigs) {
+      if (cfg.matchTitle == null && cfg.matchFirstNote != null && firstNote == cfg.matchFirstNote) {
+        return cfg;
+      }
+    }
+    return null;
+  }
 
   // Helper to determine which keys to show based on the sequences
   List<String> get _requiredKeys {
@@ -195,10 +272,6 @@ class _InteractivePianoLessonScreenState extends State<InteractivePianoLessonScr
   Future<void> _loadBacktrackForLesson() async {
     if (sequences.isEmpty) return;
     
-    // Simple heuristic: 
-    // If first note is 'E' (Lesson 3/5 Hot Cross Buns), use hot_cross_buns.mp3
-    // If first note is 'D' (Lesson L2-2 Work Song), use work_song_hozier.mp3 (if available) or silence.
-    
     // Clear existing
     if (_backtrackSource != null && _soloud.isInitialized) {
       try {
@@ -210,17 +283,8 @@ class _InteractivePianoLessonScreenState extends State<InteractivePianoLessonScr
     }
 
     try {
-      final firstNote = sequences.first.notes.isNotEmpty ? sequences.first.notes.first : '';
-      
-      String? assetPath;
-      if ((widget.lessonTitle != null && widget.lessonTitle!.contains('Three Blind Mice')) || firstNote == 'C') {
-         assetPath = 'assets/audio/piano_level3/three_blind_mice.mp3';
-      } else if (firstNote == 'E') {
-         assetPath = 'assets/audio/piano_level1/hot_cross_buns.mp3';
-      } else if (firstNote == 'D') {
-         // Try Work Song
-         assetPath = 'assets/audio/piano_level2/work_song.mp3';
-      }
+      final config = _resolveLessonConfig();
+      final assetPath = config?.backtrackAsset;
 
       if (assetPath != null && _soloud.isInitialized) {
           try {
@@ -267,6 +331,7 @@ class _InteractivePianoLessonScreenState extends State<InteractivePianoLessonScr
          wrongNote = null;
          scrollProgress = 0.0;
          _creditedIndices.clear();
+         _splitNoteProgress = 0;
        }
     });
 
@@ -298,21 +363,8 @@ class _InteractivePianoLessonScreenState extends State<InteractivePianoLessonScr
   // Default: 1189ms (Hot Cross Buns)
   // Work Song (Level 2 Lesson 2): 1400ms (Slower for learning)
   int get _lessonScrollDuration {
-    if (sequences.isEmpty) return 1189;
-    
-    final firstNote = sequences.first.notes.isNotEmpty ? sequences.first.notes.first : '';
-    
-    // Check by title first or first note for specific lessons
-    if ((widget.lessonTitle != null && widget.lessonTitle!.contains('Three Blind Mice')) || firstNote == 'C') {
-       return 529; 
-    }
-    
-    // Work Song starts with D major/minor pattern usually, but let's check notes
-    if (firstNote == 'D') {
-       return 480; // Placeholder for Work Song
-    }
-    
-    return 1189; // Default for Hot Cross Buns etc
+    final config = _resolveLessonConfig();
+    return config?.scrollDurationMs ?? 1189; // Default for unknown lessons
   }
 
   @override
@@ -516,18 +568,52 @@ class _InteractivePianoLessonScreenState extends State<InteractivePianoLessonScr
     }
 
 
-    // STANDARD PLAY MODE LOGIC (Lesson 3):
+    // STANDARD PLAY MODE LOGIC (Lesson 3 / Custom Split):
+    final expectedNoteBlock = currentSeq.notes[currentNoteIndex];
+    final bool isSplitNote = expectedNoteBlock.contains(';');
+    final List<String> subNotes = isSplitNote ? expectedNoteBlock.split(';') : [expectedNoteBlock];
+
     // Allow input while animating if within tolerance window
     if (scrollProgress > 0) {
+      if (isSplitNote) {
+         // Handle second part of split note WHILE it's scrolling
+         if (_splitNoteProgress < subNotes.length) {
+            final targetSubNote = subNotes[_splitNoteProgress];
+            if (note == targetSubNote) {
+                setState(() {
+                  _splitNoteProgress++;
+                  wrongNote = null;
+                  highlightedKey = null;
+                });
+                // Check if split note is fully played (e.g. both halves of D;D done)
+                if (_splitNoteProgress >= subNotes.length) {
+                  _resumeBacktrackAudio();
+                  // Resume scroll from 50% to animate the second half smoothly
+                  _startSmoothScroll(startProgress: 0.5);
+                }
+                return;
+            } else {
+                setState(() { wrongNote = note; });
+                _stopBacktrackAudio();
+                Future.delayed(const Duration(milliseconds: 300), () {
+                  if (mounted) setState(() => wrongNote = null);
+                });
+                return;
+            }
+         }
+      }
+
       // Check if we're near the end of current note and pressing the NEXT note
       if (_noteStartTime != null && currentNoteIndex + 1 < currentSeq.notes.length) {
         final elapsed = DateTime.now().difference(_noteStartTime!).inMilliseconds;
         final scrollDurationMs = _lessonScrollDuration;
         final remainingMs = scrollDurationMs - elapsed;
-        final nextExpectedNote = currentSeq.notes[currentNoteIndex + 1];
+        final nextExpectedBlock = currentSeq.notes[currentNoteIndex + 1];
         
+        final nextTargetNote = nextExpectedBlock.contains(';') ? nextExpectedBlock.split(';').first : nextExpectedBlock;
+
         // If pressing next note early (within tolerance), queue it
-        if (remainingMs > 0 && remainingMs <= inputToleranceMs && note == nextExpectedNote) {
+        if (remainingMs > 0 && remainingMs <= inputToleranceMs && note == nextTargetNote) {
           _earlyInputNote = note;
           _autoAdvancePending = true;
           // VISUAL FEEDBACK: Clear prompt immediately so user knows they hit it
@@ -542,29 +628,42 @@ class _InteractivePianoLessonScreenState extends State<InteractivePianoLessonScr
     }
     
     // If current note is a rest
-    if (currentSeq.notes[currentNoteIndex] == '-') {
+    if (expectedNoteBlock == '-') {
        _startSmoothScroll();
        return;
     }
 
-    final expectedNote = currentSeq.notes[currentNoteIndex];
+    final targetSubNote = subNotes[_splitNoteProgress];
 
-    if (note == expectedNote) {
+    if (note == targetSubNote) {
       // Correct note!
       setState(() {
+        _splitNoteProgress++;
         wrongNote = null;
         highlightedKey = null;
       });
 
       // Start or Resume Backtrack
-      if (currentNoteIndex == 0) {
+      if (currentNoteIndex == 0 && _splitNoteProgress == 1) {
         _startBacktrackAudio();
       } else {
         _resumeBacktrackAudio();
       }
 
-      // Start smooth scroll animation
-      _startSmoothScroll();
+      // Only start smooth scroll if this is the FIRST note of the split block being hit,
+      // because we want the block to scroll as a single unit while allowing the second tap.
+      if (!isSplitNote) {
+          _startSmoothScroll();
+      } else if (_splitNoteProgress == 1) {
+          // First tap - trigger scroll of block
+          _startSmoothScroll();
+      } else if (_splitNoteProgress >= subNotes.length) {
+          // Last tap of split note - block is finished. 
+          // Check if it was paused at the end of the block or halfway.
+          if (scrollProgress >= 0.5 || _scrollTimer == null) {
+             _handleSequenceSuccessFromSplit(); // Custom helper
+          }
+      }
     } else {
       // Wrong note
       setState(() {
@@ -585,7 +684,7 @@ class _InteractivePianoLessonScreenState extends State<InteractivePianoLessonScr
     }
   }
 
-  void _startSmoothScroll() {
+  void _startSmoothScroll({double startProgress = 0.0}) {
     _scrollTimer?.cancel();
     _earlyInputNote = null;
     _autoAdvancePending = false;
@@ -597,6 +696,9 @@ class _InteractivePianoLessonScreenState extends State<InteractivePianoLessonScr
     _noteStartTime = startTime; // Track for tolerance window
     const stepMs = 33; // ~30fps - reduced from 50fps for better performance
     
+    // Offset for resuming mid-scroll (e.g. after split note second half)
+    final int progressOffsetMs = (startProgress * scrollDurationMs).round();
+    
     // Use Stopwatch for more accurate timing
     final stopwatch = Stopwatch()..start();
 
@@ -607,7 +709,7 @@ class _InteractivePianoLessonScreenState extends State<InteractivePianoLessonScr
         return;
       }
 
-      final int elapsed = stopwatch.elapsedMilliseconds;
+      final int elapsed = stopwatch.elapsedMilliseconds + progressOffsetMs;
       final newProgress = (elapsed / scrollDurationMs).clamp(0.0, 1.0);
       
       // Update ValueNotifier directly instead of setState for scroll-only updates
@@ -623,7 +725,28 @@ class _InteractivePianoLessonScreenState extends State<InteractivePianoLessonScr
         }
       }
         
+      // Splitting Note Stop Logic: WAIT in the middle if we haven't pressed the second note
+      final bool isSplitNote = currentSeq.notes[currentNoteIndex].contains(';');
+      if (isSplitNote && _splitNoteProgress == 1 && newProgress >= 0.5) {
+          timer.cancel();
+          stopwatch.stop();
+          _scrollTimer = null;
+          _noteStartTime = null;
+
+          _stopBacktrackAudio();
+          
+          // Use ValueNotifier so the drawing halts exactly halfway (gap between the split notes)
+          _scrollProgressNotifier.value = 0.5;
+          
+          setState(() {
+            scrollProgress = 0.5; // Update state representation too
+            highlightedKey = currentSeq.notes[currentNoteIndex].split(';')[1];
+          });
+          return;
+      }
+        
       if (newProgress >= 1.0) {
+
         // MOVE TO NEXT NOTE - only setState here for actual state changes
         timer.cancel();
         stopwatch.stop();
@@ -633,6 +756,7 @@ class _InteractivePianoLessonScreenState extends State<InteractivePianoLessonScr
         setState(() {
           scrollProgress = 0.0;
           currentNoteIndex++;
+          _splitNoteProgress = 0; // Reset for next block
         });
 
         // Check if song is complete
@@ -645,20 +769,25 @@ class _InteractivePianoLessonScreenState extends State<InteractivePianoLessonScr
 
         if (currentSeq.type == 'perform') {
            // PERFORM MODE: CONTINUOUS PLAY
-           setState(() => highlightedKey = currentSeq.notes[currentNoteIndex]);
+           final nextBlock = currentSeq.notes[currentNoteIndex];
+           setState(() => highlightedKey = nextBlock.contains(';') ? nextBlock.split(';').first : nextBlock);
            // Immediately start next note
            _startSmoothScroll();
         } else {
             // PLAY MODE: PAUSE AND WAIT
-            if (currentSeq.notes[currentNoteIndex] == '-') {
+            final nextBlock = currentSeq.notes[currentNoteIndex];
+            final nextTargetNote = nextBlock.contains(';') ? nextBlock.split(';').first : nextBlock;
+
+            if (nextBlock == '-') {
                // Rest - auto-continue
                setState(() => highlightedKey = null);
                _startSmoothScroll();
-            } else if (_autoAdvancePending && _earlyInputNote == currentSeq.notes[currentNoteIndex]) {
+            } else if (_autoAdvancePending && _earlyInputNote == nextTargetNote) {
                // Early input was queued for this note - auto-advance!
                _autoAdvancePending = false;
                _earlyInputNote = null;
                setState(() {
+                 _splitNoteProgress = 1; // Count first part as hit
                  highlightedKey = null;
                  wrongNote = null;
                });
@@ -667,7 +796,7 @@ class _InteractivePianoLessonScreenState extends State<InteractivePianoLessonScr
             } else {
                // Wait for user input
                _stopBacktrackAudio();
-               setState(() => highlightedKey = currentSeq.notes[currentNoteIndex]);
+               setState(() => highlightedKey = nextTargetNote);
             }
         }
       }
@@ -853,6 +982,37 @@ class _InteractivePianoLessonScreenState extends State<InteractivePianoLessonScr
          await Future.delayed(const Duration(milliseconds: 500));
          if (mounted) _showCompletionScreen();
       }
+    }
+  }
+
+  void _handleSequenceSuccessFromSplit() {
+    setState(() {
+      scrollProgress = 0.0;
+      currentNoteIndex++;
+      _splitNoteProgress = 0; // Reset for next block
+    });
+
+    final currentSeq = sequences[currentSequenceIndex];
+    // Check if song is complete
+    if (currentNoteIndex >= currentSeq.notes.length) {
+      setState(() => highlightedKey = null);
+      _stopBacktrackAudio();
+      _handleSequenceSuccess();
+      return;
+    }
+
+    // Move to next waiting note
+    final nextBlock = currentSeq.notes[currentNoteIndex];
+    final nextTargetNote = nextBlock.contains(';') ? nextBlock.split(';').first : nextBlock;
+
+    if (nextBlock == '-') {
+       // Rest - auto-continue
+       setState(() => highlightedKey = null);
+       _startSmoothScroll();
+    } else {
+       // Wait for user input
+       _stopBacktrackAudio();
+       setState(() => highlightedKey = nextTargetNote);
     }
   }
 
@@ -1126,14 +1286,8 @@ class _InteractivePianoLessonScreenState extends State<InteractivePianoLessonScr
       case 'read': instruction = "Play the written notes"; break;
       case 'play': instruction = "Play at your own pace"; break;
       case 'perform': 
-         if ((widget.lessonTitle != null && widget.lessonTitle!.contains('Three Blind Mice')) || 
-             (sequences.isNotEmpty && sequences.first.notes.isNotEmpty && sequences.first.notes.first == 'C')) {
-             instruction = "Keep up with the music!"; 
-         } else {
-             instruction = (sequences.isNotEmpty && sequences.first.notes.isNotEmpty && sequences.first.notes.first == 'D')
-                 ? "Play the Work Song!"
-                 : "Keep up with the music!"; 
-         }
+         final perfConfig = _resolveLessonConfig();
+         instruction = perfConfig?.performInstruction ?? 'Keep up with the music!';
          break;
     }
 
@@ -1141,34 +1295,25 @@ class _InteractivePianoLessonScreenState extends State<InteractivePianoLessonScr
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 4),
       child: Column(
         children: [
-          // Dynamic Header Title (e.g. Song Name)
-          if ((widget.lessonTitle != null && widget.lessonTitle!.contains('Three Blind Mice')) || 
-              (sequences.isNotEmpty && sequences.first.notes.isNotEmpty && sequences.first.notes.first == 'C'))
-             const Padding(
-               padding: EdgeInsets.only(bottom: 8),
-               child: Text(
-                 "THREE BLIND MICE",
-                 style: TextStyle(
-                   color: Colors.redAccent,
-                   fontWeight: FontWeight.w900,
-                   fontSize: 16,
-                   letterSpacing: 1.5,
-                 ),
-               ),
-             )
-          else if (sequences.isNotEmpty && sequences.first.notes.isNotEmpty && sequences.first.notes.first == 'D')
-             const Padding(
-               padding: EdgeInsets.only(bottom: 8),
-               child: Text(
-                 "WORK SONG",
-                 style: TextStyle(
-                   color: Colors.amber,
-                   fontWeight: FontWeight.w900,
-                   fontSize: 16,
-                   letterSpacing: 1.5,
-                 ),
-               ),
-             ),
+          // Dynamic Header Title (e.g. Song Name) — driven by _LessonConfig
+          Builder(
+            builder: (context) {
+              final headerConfig = _resolveLessonConfig();
+              if (headerConfig == null) return const SizedBox.shrink();
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Text(
+                  headerConfig.displayName,
+                  style: TextStyle(
+                    color: headerConfig.headerColorValue,
+                    fontWeight: FontWeight.w900,
+                    fontSize: 16,
+                    letterSpacing: 1.5,
+                  ),
+                ),
+              );
+            },
+          ),
 
           Row(
             children: [
@@ -1366,5 +1511,42 @@ class _InteractivePianoLessonScreenState extends State<InteractivePianoLessonScr
   }
 }
 
-  // End of file class
 
+
+/// Centralized config for each song/lesson in play/perform modes.
+/// Add a new entry to [_InteractivePianoLessonScreenState._lessonConfigs] to
+/// register a new lesson — the header title, backtrack audio, scroll speed,
+/// and perform instruction are all derived from this single source of truth.
+class _LessonConfig {
+  final String id;
+  final String? matchTitle;      // Substring to match against lesson title (null = don't match by title)
+  final String? matchFirstNote;  // First note to match (null = don't match by note)
+  final String displayName;      // Shown in the header banner
+  final String headerColor;      // Color name for the header text
+  final String backtrackAsset;   // Path to the backtrack audio file
+  final int scrollDurationMs;    // How long each note scrolls (ms)
+  final String performInstruction; // Instruction text for perform mode
+
+  const _LessonConfig({
+    required this.id,
+    required this.matchTitle,
+    required this.matchFirstNote,
+    required this.displayName,
+    required this.headerColor,
+    required this.backtrackAsset,
+    required this.scrollDurationMs,
+    required this.performInstruction,
+  });
+
+  Color get headerColorValue {
+    switch (headerColor) {
+      case 'red':    return Colors.redAccent;
+      case 'amber':  return Colors.amber;
+      case 'green':  return Colors.greenAccent;
+      case 'cyan':   return Colors.cyanAccent;
+      case 'blue':   return Colors.blueAccent;
+      case 'purple': return Colors.purpleAccent;
+      default:       return Colors.white70;
+    }
+  }
+}
