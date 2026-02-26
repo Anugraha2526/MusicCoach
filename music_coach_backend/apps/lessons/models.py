@@ -88,3 +88,20 @@ class PracticeSequence(models.Model):
 
     def __str__(self):
         return f"Sequence {self.order} for {self.lesson.title}"
+
+
+class UserProgress(models.Model):
+    """
+    Tracks which lessons a specific user has completed.
+    """
+    from django.conf import settings
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='progress')
+    completed_lessons = models.ManyToManyField(Lesson, related_name='completed_by', blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'user_progress'
+
+    def __str__(self):
+        return f"Progress for {self.user.username}"

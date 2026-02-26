@@ -1,0 +1,177 @@
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
+import '../config/api_config.dart';
+import 'auth_service.dart';
+
+class ProgressService {
+  static const String _completedKey = 'completed_lessons';
+
+  /// Mark a specific lesson ID as completed.
+  static Future<void> markLessonCompleted(int lessonId) async {
+    final prefs = await SharedPreferences.getInstance();
+    List<String> completed = prefs.getStringList(_completedKey) ?? [];
+    if (!completed.contains(lessonId.toString())) {
+      completed.add(lessonId.toString());
+      await prefs.setStringList(_completedKey, completed);
+      print('DEBUG: Lesson $lessonId marked as completed locally.');
+      
+      // Async sync to backend
+      _syncToBackend(completed);
+    }
+  }
+
+  /// Mass unlock all lessons in previous levels, and all earlier lessons in the current level.
+  static Future<void> unlockLessonsUpTo(int targetLevel, int targetLessonIndex, dynamic allModules) async {
+    final prefs = await SharedPreferences.getInstance();
+    List<String> completed = prefs.getStringList(_completedKey) ?? [];
+    bool changed = false;
+
+    // allModules should be a List<LessonModule>
+    for (var module in allModules) {
+      if (module.order < targetLevel) {
+        // Unlock all lessons in previous levels
+        for (var lesson in module.lessons) {
+          if (!completed.contains(lesson.id.toString())) {
+            completed.add(lesson.id.toString());
+            changed = true;
+          }
+        }
+      } else if (module.order == targetLevel) {
+        // Unlock lessons in the current level up to (and including) the target index
+        for (int i = 0; i < module.lessons.length; i++) {
+          if (i <= targetLessonIndex) {
+            final lessonId = module.lessons[i].id.toString();
+            if (!completed.contains(lessonId)) {
+              completed.add(lessonId);
+              changed = true;
+            }
+          }
+        }
+      }
+    }
+
+    if (changed) {
+      await prefs.setStringList(_completedKey, completed);
+      print('DEBUG: Mass unlocked lessons up to Level $targetLevel, Index $targetLessonIndex.');
+      
+      // Async sync to backend
+      _syncToBackend(completed);
+    }
+  }
+
+  /// Get a set of all completed lesson IDs for easy lookup.
+  static Future<Set<int>> getCompletedLessons() async {
+    final prefs = await SharedPreferences.getInstance();
+    List<String> completed = prefs.getStringList(_completedKey) ?? [];
+    return completed.map((e) => int.tryParse(e) ?? -1).where((e) => e != -1).toSet();
+  }
+
+  /// Check if a specific lesson ID is completed.
+  static Future<bool> isLessonCompleted(int lessonId) async {
+    final prefs = await SharedPreferences.getInstance();
+    List<String> completed = prefs.getStringList(_completedKey) ?? [];
+    return completed.contains(lessonId.toString());
+  }
+
+  /// Optional: Clear all progress (for debugging or logging out)
+  static Future<void> clearProgress() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_completedKey);
+    print('DEBUG: Lesson progress cleared.');
+  }
+
+  // --- Backend Sync Methods ---
+
+  /// Push local progress to the backend
+  static Future<void> _syncToBackend(List<String> completed) async {
+    try {
+      final token = await AuthService.getToken();
+      if (token == null) return; // Not logged in
+
+      final lessonIds = completed.map((e) => int.tryParse(e)).where((e) => e != null).toList();
+
+      final response = await http.post(
+        Uri.parse('${ApiConfig.baseUrl}/api/lessons/progress/sync/'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode({
+          'lesson_ids': lessonIds,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        print('DEBUG: Progress synced to backend successfully.');
+      } else if (response.statusCode == 401) {
+         // Token expired, try refresh
+         final refreshSuccess = await AuthService.tryRefreshToken();
+         if (refreshSuccess) {
+            final newToken = await AuthService.getToken();
+            await http.post(
+              Uri.parse('${ApiConfig.baseUrl}/api/lessons/progress/sync/'),
+              headers: {
+                'Content-Type': 'application/json',
+                if (newToken != null) 'Authorization': 'Bearer $newToken',
+              },
+              body: jsonEncode({
+                'lesson_ids': lessonIds,
+              }),
+            );
+         }
+      } else {
+        print('DEBUG: Failed to sync progress to backend: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('DEBUG: Error syncing progress to backend: $e');
+    }
+  }
+
+  /// Pull progress from the backend and overwrite local storage.
+  /// Should be called immediately after successful login.
+  static Future<void> fetchFromBackend() async {
+    try {
+      final token = await AuthService.getToken();
+      if (token == null) return;
+
+      var response = await http.get(
+        Uri.parse('${ApiConfig.baseUrl}/api/lessons/progress/'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      if (response.statusCode == 401) {
+         final refreshSuccess = await AuthService.tryRefreshToken();
+         if (refreshSuccess) {
+            final newToken = await AuthService.getToken();
+            response = await http.get(
+              Uri.parse('${ApiConfig.baseUrl}/api/lessons/progress/'),
+              headers: {
+                'Content-Type': 'application/json',
+                if (newToken != null) 'Authorization': 'Bearer $newToken',
+              },
+            );
+         }
+      }
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final List<dynamic> backendIds = data['completed_lesson_ids'] ?? [];
+        
+        // Overwrite local SharedPreferences
+        final prefs = await SharedPreferences.getInstance();
+        final List<String> completedStrs = backendIds.map((e) => e.toString()).toList();
+        await prefs.setStringList(_completedKey, completedStrs);
+        
+        print('DEBUG: Progress fetched from backend: ${completedStrs.length} lessons.');
+      } else {
+        print('DEBUG: Failed to fetch progress from backend: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('DEBUG: Error fetching progress from backend: $e');
+    }
+  }
+}

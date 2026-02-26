@@ -4,6 +4,7 @@ import 'package:flutter_soloud/flutter_soloud.dart';
 import 'dart:async';
 import '../models/lesson_models.dart';
 import '../services/lesson_service.dart';
+import '../services/progress_service.dart';
 import '../widgets/lesson/piano_keyboard.dart';
 import '../widgets/lesson/piano_minimap.dart';
 import '../widgets/lesson/notation_widget.dart';
@@ -19,11 +20,19 @@ import '../widgets/lesson/staff_place_widget.dart';
 class InteractivePianoLessonScreen extends StatefulWidget {
   final int lessonId;
   final String? lessonTitle;
+  
+  // New fields for mass unlock (jump feature)
+  final int? targetLevel;
+  final int? targetLessonIndex;
+  final List<LessonModule>? allModules;
 
   const InteractivePianoLessonScreen({
     super.key,
     required this.lessonId,
     this.lessonTitle,
+    this.targetLevel,
+    this.targetLessonIndex,
+    this.allModules,
   });
 
   @override
@@ -1079,6 +1088,13 @@ class _InteractivePianoLessonScreenState extends State<InteractivePianoLessonScr
   }
 
   void _showCompletionScreen() {
+    ProgressService.markLessonCompleted(widget.lessonId);
+    
+    // If we have level info, it means we can potentially unlock previous levels
+    if (widget.targetLevel != null && widget.targetLessonIndex != null && widget.allModules != null) {
+      ProgressService.unlockLessonsUpTo(widget.targetLevel!, widget.targetLessonIndex!, widget.allModules);
+    }
+    
     setState(() => isLessonComplete = true);
   }
 
