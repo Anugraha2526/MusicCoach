@@ -15,6 +15,8 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
   final newPasswordController = TextEditingController();
   final confirmPasswordController = TextEditingController();
   bool isLoading = false;
+  bool _obscureNewPassword = true;
+  bool _obscureConfirmPassword = true;
 
   void handleResetPassword() async {
     final otp = otpController.text.trim();
@@ -28,6 +30,13 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
       return;
     }
 
+    if (newPassword.length < 8) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Password must be at least 8 characters')),
+      );
+      return;
+    }
+
     if (newPassword != confirmPassword) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Passwords do not match')),
@@ -37,7 +46,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
 
     setState(() => isLoading = true);
 
-    bool success = await AuthService.resetPasswordWithOtp(
+    final result = await AuthService.resetPasswordWithOtp(
       widget.email,
       otp,
       newPassword,
@@ -45,14 +54,14 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
 
     setState(() => isLoading = false);
 
-    if (success) {
+    if (result['success'] == true) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Password reset successful. Please login.')),
       );
       Navigator.pushReplacementNamed(context, '/login');
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: OTP invalid or expired.')),
+        SnackBar(content: Text(result['error'] ?? 'OTP invalid or expired.')),
       );
     }
   }
@@ -124,7 +133,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
             SizedBox(height: 16),
             TextField(
               controller: newPasswordController,
-              obscureText: true,
+              obscureText: _obscureNewPassword,
               style: TextStyle(color: primaryText),
               decoration: InputDecoration(
                 labelText: 'New Password',
@@ -140,12 +149,19 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                 filled: true,
                 fillColor: Colors.white.withOpacity(0.05),
                 prefixIcon: Icon(Icons.lock_outline, color: secondaryText),
+                suffixIcon: IconButton(
+                  icon: Icon(
+                    _obscureNewPassword ? Icons.visibility_off : Icons.visibility,
+                    color: secondaryText,
+                  ),
+                  onPressed: () => setState(() => _obscureNewPassword = !_obscureNewPassword),
+                ),
               ),
             ),
             SizedBox(height: 10),
             TextField(
               controller: confirmPasswordController,
-              obscureText: true,
+              obscureText: _obscureConfirmPassword,
               style: TextStyle(color: primaryText),
               decoration: InputDecoration(
                 labelText: 'Confirm New Password',
@@ -161,6 +177,13 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                 filled: true,
                 fillColor: Colors.white.withOpacity(0.05),
                 prefixIcon: Icon(Icons.check, color: secondaryText),
+                suffixIcon: IconButton(
+                  icon: Icon(
+                    _obscureConfirmPassword ? Icons.visibility_off : Icons.visibility,
+                    color: secondaryText,
+                  ),
+                  onPressed: () => setState(() => _obscureConfirmPassword = !_obscureConfirmPassword),
+                ),
               ),
             ),
             SizedBox(height: 32),
