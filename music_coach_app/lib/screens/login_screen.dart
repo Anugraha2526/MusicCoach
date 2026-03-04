@@ -10,11 +10,11 @@ class _LoginScreenState extends State<LoginScreen> {
   final emailController = TextEditingController();
   final passwordController = TextEditingController();
   bool isLoading = false;
+  bool _obscurePassword = true;
 
   @override
   void initState() {
     super.initState();
-    _checkAutoLogin();
   }
 
   @override
@@ -24,13 +24,6 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-  void _checkAutoLogin() async {
-    if (await AuthService.isLoggedIn()) {
-      if (mounted) {
-        Navigator.pushReplacementNamed(context, '/main');
-      }
-    }
-  }
 
   void handleLogin() async {
     final email = emailController.text.trim();
@@ -53,7 +46,7 @@ class _LoginScreenState extends State<LoginScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Login successful')),
       );
-      Navigator.pushReplacementNamed(context, '/main');
+      Navigator.pushNamedAndRemoveUntil(context, '/main', (route) => false);
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Invalid email or password')),
@@ -69,22 +62,10 @@ class _LoginScreenState extends State<LoginScreen> {
     final Color primaryText = const Color(0xFFFFFFFF);
     final Color secondaryText = const Color(0xFF848484);
 
-    // Check if we can go back
-    final canPop = Navigator.canPop(context);
-    
+
+
     return PopScope(
-      canPop: false,
-      onPopInvokedWithResult: (didPop, result) {
-        if (didPop) return;
-        if (canPop) {
-           Navigator.pop(context); // Allow normal back if pushed
-        } else {
-           // If we can't pop (root), replace to home if somehow here? 
-           // Or more likely, go back to Landing if we came from there?
-           // Actually, if we are at Login, we came from Landing. Pop should go back to Landing.
-           Navigator.pop(context);
-        }
-      },
+      canPop: true, // Allow normal back navigation to landing
       child: Scaffold(
         backgroundColor: backgroundColor,
         appBar: AppBar(
@@ -147,7 +128,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 // Password Field
                 TextField(
                   controller: passwordController,
-                  obscureText: true,
+                  obscureText: _obscurePassword,
                   style: TextStyle(color: primaryText),
                   decoration: InputDecoration(
                     labelText: 'Password',
@@ -162,6 +143,13 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     filled: true,
                     fillColor: Colors.white.withOpacity(0.05),
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                        color: secondaryText,
+                      ),
+                      onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                    ),
                   ),
                 ),
                 const SizedBox(height: 24),

@@ -10,13 +10,27 @@ class LessonService {
   static Future<List<LessonModule>> fetchModules() async {
     try {
       final token = await AuthService.getToken();
-      final response = await http.get(
+      var response = await http.get(
         Uri.parse('${ApiConfig.baseUrl}/api/lessons/'),
         headers: {
           'Content-Type': 'application/json',
           if (token != null) 'Authorization': 'Bearer $token',
         },
       );
+
+      if (response.statusCode == 401) {
+        final refreshSuccess = await AuthService.tryRefreshToken();
+        if (refreshSuccess) {
+          final newToken = await AuthService.getToken();
+          response = await http.get(
+            Uri.parse('${ApiConfig.baseUrl}/api/lessons/'),
+            headers: {
+              'Content-Type': 'application/json',
+              if (newToken != null) 'Authorization': 'Bearer $newToken',
+            },
+          );
+        }
+      }
 
       if (response.statusCode == 200) {
         final List<dynamic> modulesJson = jsonDecode(response.body);

@@ -13,6 +13,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final usernameController = TextEditingController();
   final passwordController = TextEditingController();
   bool _isLoading = false;
+  bool _obscurePassword = true;
 
   void handleRegister() async {
     setState(() => _isLoading = true);
@@ -30,7 +31,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         const SnackBar(content: Text('Registration successful!')),
       );
       // Navigate to Instrument Selection (Onboarding)
-      Navigator.pushReplacementNamed(context, '/onboarding');
+      Navigator.pushNamedAndRemoveUntil(context, '/onboarding', (route) => false);
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Registration failed')),
@@ -143,7 +144,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               // Password Field
               TextField(
                 controller: passwordController,
-                obscureText: true,
+                obscureText: _obscurePassword,
                 style: TextStyle(color: primaryText),
                 decoration: InputDecoration(
                   labelText: 'Password',
@@ -159,6 +160,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   ),
                   filled: true,
                   fillColor: Colors.white.withOpacity(0.05),
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                      color: secondaryText,
+                    ),
+                    onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                  ),
                 ),
               ),
               const SizedBox(height: 24),

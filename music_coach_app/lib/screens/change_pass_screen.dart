@@ -13,6 +13,9 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
 
   bool isLoading = false;
   bool isLoggedIn = false;
+  bool _obscureOldPassword = true;
+  bool _obscureNewPassword = true;
+  bool _obscureConfirmPassword = true;
 
   @override
   void initState() {
@@ -66,9 +69,6 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Password changed successfully')),
       );
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Password changed successfully')),
-      );
       // Navigate to Main Layout (Home) to restore bottom nav
       Navigator.pushNamedAndRemoveUntil(context, '/main', (route) => false);
     } else {
@@ -110,7 +110,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
             children: [
               TextField(
                 controller: oldPasswordController,
-                obscureText: true,
+                obscureText: _obscureOldPassword,
                 style: TextStyle(color: primaryText),
                 decoration: InputDecoration(
                   labelText: 'Old Password',
@@ -126,12 +126,19 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                   filled: true,
                   fillColor: Colors.white.withOpacity(0.05),
                   prefixIcon: Icon(Icons.lock_outline, color: secondaryText),
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      _obscureOldPassword ? Icons.visibility_off : Icons.visibility,
+                      color: secondaryText,
+                    ),
+                    onPressed: () => setState(() => _obscureOldPassword = !_obscureOldPassword),
+                  ),
                 ),
               ),
               SizedBox(height: 16),
               TextField(
                 controller: newPasswordController,
-                obscureText: true,
+                obscureText: _obscureNewPassword,
                 style: TextStyle(color: primaryText),
                 decoration: InputDecoration(
                   labelText: 'New Password',
@@ -147,12 +154,19 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                   filled: true,
                   fillColor: Colors.white.withOpacity(0.05),
                   prefixIcon: Icon(Icons.lock, color: secondaryText),
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      _obscureNewPassword ? Icons.visibility_off : Icons.visibility,
+                      color: secondaryText,
+                    ),
+                    onPressed: () => setState(() => _obscureNewPassword = !_obscureNewPassword),
+                  ),
                 ),
               ),
               SizedBox(height: 16),
               TextField(
                 controller: confirmPasswordController,
-                obscureText: true,
+                obscureText: _obscureConfirmPassword,
                 style: TextStyle(color: primaryText),
                 decoration: InputDecoration(
                   labelText: 'Confirm New Password',
@@ -168,6 +182,13 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                   filled: true,
                   fillColor: Colors.white.withOpacity(0.05),
                   prefixIcon: Icon(Icons.check, color: secondaryText),
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      _obscureConfirmPassword ? Icons.visibility_off : Icons.visibility,
+                      color: secondaryText,
+                    ),
+                    onPressed: () => setState(() => _obscureConfirmPassword = !_obscureConfirmPassword),
+                  ),
                 ),
               ),
               SizedBox(height: 32),

@@ -65,6 +65,26 @@ class AuthService {
   // -------------------- Logout --------------------
   static Future<void> logout() async {
     final prefs = await SharedPreferences.getInstance();
+    final refreshToken = prefs.getString('refresh_token');
+    final accessToken = prefs.getString('access_token');
+
+    // Blacklist refresh token server-side (best effort)
+    if (refreshToken != null && accessToken != null) {
+      try {
+        await http.post(
+          Uri.parse(ApiConfig.logout),
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $accessToken',
+          },
+          body: jsonEncode({'refresh': refreshToken}),
+        );
+      } catch (_) {
+        // Best effort — continue with local cleanup even if server call fails
+      }
+    }
+
+    // Clear ALL auth-related local data
     await prefs.remove('access_token');
     await prefs.remove('refresh_token');
     await prefs.remove(_onboardingKey); // Reset onboarding on logout
@@ -202,7 +222,7 @@ class AuthService {
     final token = await getToken();
     if (token == null) return false;
 
-    final response = await http.put(
+    var response = await http.put(
       Uri.parse(ApiConfig.profile),
       headers: {
         'Content-Type': 'application/json',
@@ -210,6 +230,21 @@ class AuthService {
       },
       body: jsonEncode({'username': username, 'email': email}),
     );
+
+    if (response.statusCode == 401) {
+      final refreshSuccess = await tryRefreshToken();
+      if (refreshSuccess) {
+        final newToken = await getToken();
+        response = await http.put(
+          Uri.parse(ApiConfig.profile),
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $newToken',
+          },
+          body: jsonEncode({'username': username, 'email': email}),
+        );
+      }
+    }
 
     return response.statusCode == 200;
   }
@@ -219,7 +254,7 @@ class AuthService {
     final token = await getToken();
     if (token == null) return false;
 
-    final response = await http.post(
+    var response = await http.post(
       Uri.parse(ApiConfig.changePassword),
       headers: {
         'Content-Type': 'application/json',
@@ -227,6 +262,21 @@ class AuthService {
       },
       body: jsonEncode({'old_password': oldPassword, 'new_password': newPassword}),
     );
+
+    if (response.statusCode == 401) {
+      final refreshSuccess = await tryRefreshToken();
+      if (refreshSuccess) {
+        final newToken = await getToken();
+        response = await http.post(
+          Uri.parse(ApiConfig.changePassword),
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $newToken',
+          },
+          body: jsonEncode({'old_password': oldPassword, 'new_password': newPassword}),
+        );
+      }
+    }
 
     return response.statusCode == 200;
   }
@@ -243,17 +293,48 @@ class AuthService {
   }
 
   // -------------------- Password Reset Confirm with OTP --------------------
-  static Future<bool> resetPasswordWithOtp(String email, String otp, String newPassword) async {
+  static Future<Map<String, dynamic>> resetPasswordWithOtp(String email, String otp, String newPassword) async {
     final response = await http.post(
       Uri.parse(ApiConfig.passwordResetConfirm),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({
         'email': email,
-        'otp': otp,             // Using OTP sent to email
+        'otp': otp,
         'new_password': newPassword,
       }),
     );
 
-    return response.statusCode == 200;
+    if (response.statusCode == 200) {
+      return {'success': true};
+    } else {
+      // Try to parse the error message from the backend
+      try {
+        final data = jsonDecode(response.body);
+        // Backend may return {'error': '...'} or {'new_password': ['...']} etc.
+        String errorMsg = 'OTP invalid or expired.';
+        if (data is Map) {
+          if (data.containsKey('error')) {
+            errorMsg = data['error'];
+          } else if (data.containsKey('new_password')) {
+            final pwErrors = data['new_password'];
+            errorMsg = pwErrors is List ? pwErrors.join(', ') : pwErrors.toString();
+          } else {
+            // Collect all error messages
+            final errors = <String>[];
+            data.forEach((key, value) {
+              if (value is List) {
+                errors.addAll(value.map((e) => e.toString()));
+              } else {
+                errors.add(value.toString());
+              }
+            });
+            if (errors.isNotEmpty) errorMsg = errors.join(', ');
+          }
+        }
+        return {'success': false, 'error': errorMsg};
+      } catch (_) {
+        return {'success': false, 'error': 'OTP invalid or expired.'};
+      }
+    }
   }
 }
