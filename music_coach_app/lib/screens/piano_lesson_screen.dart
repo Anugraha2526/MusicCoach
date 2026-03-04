@@ -90,45 +90,44 @@ class _PianoLessonScreenState extends State<PianoLessonScreen>
     }
   }
 
-  void _onLessonTap(int placeholderIndex, LessonItem? backendLesson, bool isLocked, {bool isJump = false, int? targetLevel, int? targetLessonIndex, List<LessonModule>? allModules}) {
+  void _onLessonSelect(int placeholderIndex) {
     setState(() {
-      if (selectedLessonIndex == placeholderIndex) {
-        if (backendLesson != null && (!isLocked || isJump)) { 
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => InteractivePianoLessonScreen(
-                lessonId: backendLesson!.id,
-                lessonTitle: backendLesson.title,
-                targetLevel: targetLevel,
-                targetLessonIndex: targetLessonIndex,
-                allModules: allModules,
-              ),
-            ),
-          ).then((_) {
-             _loadProgress();
-          });
-        } else if (isLocked && backendLesson != null && !isJump) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Complete the previous level to unlock this lesson!'),
-              backgroundColor: Colors.orange,
-            ),
-          );
-        } else {
-          // Placeholder for future lessons
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('This lesson is coming soon!'),
-              backgroundColor: Color(0xFF00B4D8),
-            ),
-          );
-        }
-      } else {
-        // Select new
-        selectedLessonIndex = placeholderIndex;
-      }
+      selectedLessonIndex = placeholderIndex;
     });
+  }
+
+  void _onLessonStart(int placeholderIndex, LessonItem? backendLesson, bool isLocked, {bool isJump = false, int? targetLevel, int? targetLessonIndex, List<LessonModule>? allModules}) {
+    if (backendLesson != null && (!isLocked || isJump)) { 
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => InteractivePianoLessonScreen(
+            lessonId: backendLesson!.id,
+            lessonTitle: backendLesson.title,
+            targetLevel: targetLevel,
+            targetLessonIndex: targetLessonIndex,
+            allModules: allModules,
+          ),
+        ),
+      ).then((_) {
+         _loadProgress();
+      });
+    } else if (isLocked && backendLesson != null && !isJump) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Complete the previous level to unlock this lesson!'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+    } else {
+      // Placeholder for future lessons
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('This lesson is coming soon!'),
+          backgroundColor: Color(0xFF00B4D8),
+        ),
+      );
+    }
   }
 
   // Vertical spacing constants
@@ -220,10 +219,17 @@ class _PianoLessonScreenState extends State<PianoLessonScreen>
       body: Builder(
         builder: (context) {
           final contentHeight = placeholders.length * 160.0 + (5 * 100.0) + 200;
-          return SingleChildScrollView(
-            controller: _scrollController,
-            reverse: false,
-            child: SizedBox(
+          return GestureDetector(
+            onTap: () {
+              setState(() {
+                selectedLessonIndex = null;
+              });
+            },
+            behavior: HitTestBehavior.opaque,
+            child: SingleChildScrollView(
+              controller: _scrollController,
+              reverse: false,
+              child: SizedBox(
               height: contentHeight,
               child: Stack(
                 children: [
@@ -243,7 +249,32 @@ class _PianoLessonScreenState extends State<PianoLessonScreen>
                     final level = levelIndex + 1;
                     final labelY = _getLevelLabelY(level, contentHeight);
                     
-                    final String headerText = level == 6 ? 'COMING SOON' : 'LEVEL $level';
+                    String headerText = level == 6 ? 'COMING SOON' : 'LEVEL $level';
+                    
+                    if (level < 6) {
+                      // Find the module
+                      final module = _backendModules.firstWhere(
+                        (m) => m.order == level,
+                        orElse: () => LessonModule(id: -1, title: '', description: '', order: -1, lessons: []),
+                      );
+                      
+                      if (module.id != -1 && module.lessons.isNotEmpty) {
+                        String rawTitle = '';
+                        if (module.lessons.length > 4) {
+                          rawTitle = module.lessons[4].title;
+                        } else if (module.lessons.length > 3) {
+                          rawTitle = module.lessons[3].title;
+                        } else {
+                          rawTitle = module.lessons.last.title;
+                        }
+                        
+                        // Clean up title by removing "Perform " or "Perform: "
+                        final cleanedTitle = rawTitle.replaceAll(RegExp(r'^Perform[:\s]+', caseSensitive: false), '').trim();
+                        if (cleanedTitle.isNotEmpty) {
+                           headerText = 'LEVEL $level: ${cleanedTitle.toUpperCase()}';
+                        }
+                      }
+                    }
                     
                     return Positioned(
                       left: 0,
@@ -304,6 +335,20 @@ class _PianoLessonScreenState extends State<PianoLessonScreen>
                       }
                     }
 
+                    // Get the song title for this level (from lesson 4 or 5)
+                    String? levelSongTitle;
+                    if (module.id != -1 && module.lessons.isNotEmpty) {
+                      // Try to get lesson 5 (index 4), or lesson 4 (index 3) if 5 doesn't exist
+                      if (module.lessons.length > 4) {
+                        levelSongTitle = module.lessons[4].title;
+                      } else if (module.lessons.length > 3) {
+                        levelSongTitle = module.lessons[3].title;
+                      } else {
+                        // fallback to the last lesson in the level if < 4 exist
+                        levelSongTitle = module.lessons.last.title;
+                      }
+                    }
+
                     bool isLevelUnlocked = placeholder.level == 1;
                     if (placeholder.level > 1) {
                       final prevModule = _backendModules.firstWhere(
@@ -323,7 +368,7 @@ class _PianoLessonScreenState extends State<PianoLessonScreen>
                     final position = _getLessonPosition(index, screenWidth, contentHeight);
                     
                     return Positioned(
-                      left: position.dx - 60, // Wider for text
+                      left: position.dx - 80, // Adjusted for width 160
                       top: position.dy - 60, // Moved up to accommodate jump text
                       child: Stack(
                         clipBehavior: Clip.none,
@@ -334,7 +379,8 @@ class _PianoLessonScreenState extends State<PianoLessonScreen>
                             pianoColor: _pianoColor,
                             isAvailable: isEffectivelyPlayable,
                             isSelected: selectedLessonIndex == index,
-                            onTap: () => _onLessonTap(
+                            onTap: () => _onLessonSelect(index),
+                            onStart: () => _onLessonStart(
                               index, 
                               backendLesson, 
                               !isLevelUnlocked, 
@@ -381,6 +427,7 @@ class _PianoLessonScreenState extends State<PianoLessonScreen>
                 ],
               ),
             ),
+            ),
           );
         },
       ),
@@ -401,6 +448,7 @@ class _AnimatedLessonButton extends StatefulWidget {
   final bool isAvailable;
   final bool isSelected;
   final VoidCallback onTap;
+  final VoidCallback onStart;
 
   const _AnimatedLessonButton({
     required this.lessonTitle,
@@ -408,6 +456,7 @@ class _AnimatedLessonButton extends StatefulWidget {
     required this.isAvailable,
     required this.isSelected,
     required this.onTap,
+    required this.onStart,
   });
 
   @override
@@ -455,14 +504,15 @@ class _AnimatedLessonButtonState extends State<_AnimatedLessonButton> with Singl
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: widget.onTap,
-      child: SizedBox(
-        width: 120, // Container for button + text
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ScaleTransition(
+    return SizedBox(
+      width: 180, // Increased container for button + text & popup
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          GestureDetector(
+            onTap: widget.onTap,
+            child: ScaleTransition(
               scale: _scaleAnimation,
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 200),
@@ -494,23 +544,57 @@ class _AnimatedLessonButtonState extends State<_AnimatedLessonButton> with Singl
                 ),
               ),
             ),
-            const SizedBox(height: 16),
-            Text(
-              widget.lessonTitle,
-              textAlign: TextAlign.center,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: widget.isSelected ? Colors.white : Colors.white70,
-                fontSize: 13,
-                fontWeight: widget.isSelected ? FontWeight.bold : FontWeight.w500,
-                shadows: widget.isSelected ? [
-                  const Shadow(color: Colors.black45, blurRadius: 4, offset: Offset(0, 2))
-                ] : [],
+          ),
+          if (widget.isSelected) ...[
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1E293B),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: widget.pianoColor.withOpacity(0.5), width: 1.5),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.3),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    widget.lessonTitle,
+                    textAlign: TextAlign.center,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 16, // Increased font size
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  ElevatedButton(
+                    onPressed: widget.onStart,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: widget.pianoColor,
+                      foregroundColor: Colors.white,
+                      minimumSize: const Size(double.infinity, 44), // Taller button
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      elevation: 0,
+                    ),
+                    child: const Text('Start', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)), // Larger text on button
+                  ),
+                ],
               ),
             ),
           ],
-        ),
+        ],
       ),
     );
   }
