@@ -1032,6 +1032,8 @@ class _InteractivePianoLessonScreenState extends State<InteractivePianoLessonScr
       ),
     );
     if (sequences[currentSequenceIndex].type == 'listen') {
+       // Block input immediately to prevent multiple replays from rapid key presses
+       setState(() => isPlayingSequence = true);
        Future.delayed(const Duration(milliseconds: 1000), _playCurrentSequenceAudio);
     }
   }
@@ -1455,15 +1457,32 @@ class _InteractivePianoLessonScreenState extends State<InteractivePianoLessonScr
             ],
           ),
           const SizedBox(height: 4),
-          Text(
-            instruction,
-            style: TextStyle(
-              fontSize: 22, 
-              fontWeight: FontWeight.bold, 
-              color: titleColor,
-              letterSpacing: 0.5,
+          Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              instruction,
+              style: TextStyle(
+                fontSize: 22, 
+                fontWeight: FontWeight.bold, 
+                color: titleColor,
+                letterSpacing: 0.5,
+              ),
             ),
-          ),
+            // Replay button: only visible for 'listen' mode after sequence finishes
+            if (seq.type == 'listen' && !isPlayingSequence)
+              Padding(
+                padding: const EdgeInsets.only(left: 8),
+                child: IconButton(
+                  onPressed: _playCurrentSequenceAudio,
+                  icon: const Icon(Icons.replay, color: Colors.white70, size: 24),
+                  tooltip: 'Replay sequence',
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                ),
+              ),
+          ],
+        ),
         ],
       ),
     );
