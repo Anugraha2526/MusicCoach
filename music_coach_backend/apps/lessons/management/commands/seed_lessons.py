@@ -595,14 +595,17 @@ class Command(BaseCommand):
             module=module3,
             order=3,
             defaults={
-                'title': "Three Blind Mice- Lily's Version",
+                'title': "Three Blind Mice",
                 'lesson_type': 'practice',
+                'description': "Learn to play 'Three Blind Mice' using right hand.",
             }
         )
         if created:
             self.stdout.write(self.style.SUCCESS(f'Created lesson: {l3_lesson3.title}'))
         else:
             self.stdout.write(f'Lesson already exists: {l3_lesson3.title}')
+            l3_lesson3.title = "Three Blind Mice"
+            l3_lesson3.save()
             l3_lesson3.sequences.all().delete()
 
         self.stdout.write(f'Seeding sequences for "{l3_lesson3.title}"...')
@@ -686,14 +689,17 @@ class Command(BaseCommand):
             module=module3,
             order=5,
             defaults={
-                'title': "Perform Three Blind Mice- Lily's Version",
+                'title': "Perform Three Blind Mice",
                 'lesson_type': 'practice',
+                'description': "Perform Three blind mice using both hands.",
             }
         )
         if created:
             self.stdout.write(self.style.SUCCESS(f'Created lesson: {l3_lesson5.title}'))
         else:
             self.stdout.write(f'Lesson already exists: {l3_lesson5.title}')
+            l3_lesson5.title = "Perform Three Blind Mice"
+            l3_lesson5.save()
             l3_lesson5.sequences.all().delete()
 
         self.stdout.write(f'Seeding sequences for "{l3_lesson5.title}"...')
