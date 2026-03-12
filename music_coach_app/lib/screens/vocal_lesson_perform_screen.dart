@@ -74,61 +74,52 @@ class _VocalLessonPerformScreenState extends State<VocalLessonPerformScreen> wit
     return '${_chromaticNames[noteIndex]}$octave';
   }
 
-  /// Generate the full note list for "Singing on mum".
-  /// 11 lines: go up 5 half-steps to peak, then back down WITHOUT repeating peak.
-  /// offsets = [0,1,2,3,4,5,4,3,2,1,0]. Pattern per line: 1,2,3,4,5,4,3,2,1.
+  /// Generate the full note list for Level 1 Lesson 1 (Ascent & Descent).
+  /// Starting from natural pitch, going up the major scale and back down to the octave.
+  /// Pattern: 1, 2, 3, 4, 5, 6, 7, 8, 8, 7, 6, 5, 4, 3, 2, 1
+  /// Note duration: 3.5 beats note, 0.5 beat rest.
+  /// (Since we need 0.5 beat resolution, we double the beat timeline: 1 beat = 2 array elements).
   List<String> _generateVocalNotes(double naturalPitchMidi) {
     final int startMidi = naturalPitchMidi.round();
-    // Major-scale intervals for degrees 1–5
-    const scaleIntervals = [0, 2, 4, 5, 7];
-    // Scale degree pattern per line: 1,2,3,4,5,4,3,2,1
-    const pattern = [0, 1, 2, 3, 4, 3, 2, 1, 0];
-    // 11 lines: up 5 half-steps then back down without repeating the peak
-    const lineOffsets = [0, 1, 2, 3, 4, 5, 4, 3, 2, 1, 0];
+    // Major-scale intervals: 1, 2, 3, 4, 5, 6, 7, 8 (octave)
+    const scaleIntervals = [0, 2, 4, 5, 7, 9, 11, 12];
+    const pattern = [0, 1, 2, 3, 4, 5, 6, 7, 7, 6, 5, 4, 3, 2, 1, 0];
 
     final List<String> allNotes = [];
 
-    // 2 beats of lead-in rest
-    allNotes.addAll(['-', '-']);
+    // 4 beats of lead-in rest (8 half-beats since we need 0.5 resolution)
+    allNotes.addAll(List.filled(8, '-'));
 
-    for (int line = 0; line < lineOffsets.length; line++) {
-      final int root = startMidi + lineOffsets[line];
-      for (int p = 0; p < pattern.length; p++) {
-        final int midi = root + scaleIntervals[pattern[p]];
-        final String name = _midiToNoteName(midi);
-        if (p < pattern.length - 1) {
-          allNotes.add(name);
-        } else {
-          // Last note — half note (2 beats): note + 1 hold marker
-          allNotes.add(name);
-          allNotes.addAll(['=']);
-        }
-      }
-      // 2-beat rest gap before next line
-      allNotes.addAll(['-', '-']);
+    for (int p = 0; p < pattern.length; p++) {
+      final int midi = startMidi + scaleIntervals[pattern[p]];
+      final String name = _midiToNoteName(midi);
+      
+      // 3.5 beats note = 7 half-beats (1 initial + 6 holds)
+      allNotes.add(name);
+      allNotes.addAll(List.filled(6, '='));
+      
+      // 0.5 beat rest = 1 half-beat
+      allNotes.add('-');
     }
 
     return allNotes;
   }
 
-  /// Build a map of beat-index → chord notes to play during rest bars.
-  /// Chord = [root, root+5, root+9] (scale degrees 1, 4, 6).
+  /// Build a map of half-beat-index → chord/guide notes to play.
   Map<int, List<String>> _buildChordMap(double naturalPitchMidi) {
     final int startMidi = naturalPitchMidi.round();
-    const chordIntervals = [0, 5, 9];
-    const lineOffsets = [0, 1, 2, 3, 4, 5, 4, 3, 2, 1, 0];
-    final Map<int, List<String>> chords = {};
+    // Root major chord: 1, 3, 5
+    const chordIntervals = [0, 4, 7]; 
+    final Map<int, List<String>> playMap = {};
 
-    // Lead-in rest (beat 0): chord of line 0
-    chords[0] = chordIntervals.map((i) => _midiToNoteName(startMidi + lineOffsets[0] + i)).toList();
+    // Lead-in rest (beat 0): play full root chord
+    playMap[0] = chordIntervals.map((i) => _midiToNoteName(startMidi + i)).toList();
 
-    // Each line = 12 beats (8 quarter + 2-beat half note + 2-beat rest)
-    for (int line = 0; line < lineOffsets.length; line++) {
-      final int restStart = 2 + line * 12 + 10; // 2 lead-in + (line * 12) + 10 notes
-      final int nextOffset = line < lineOffsets.length - 1 ? lineOffsets[line + 1] : lineOffsets[line];
-      chords[restStart] = chordIntervals.map((i) => _midiToNoteName(startMidi + nextOffset + i)).toList();
-    }
-    return chords;
+    // On the 3rd beat of the 4-beat lead-in (half-beat index 4)
+    // Play the starting root note so the user can hear it before singing
+    playMap[4] = [_midiToNoteName(startMidi)];
+
+    return playMap;
   }
 
   late AnimationController _repaintController;
@@ -140,8 +131,9 @@ class _VocalLessonPerformScreenState extends State<VocalLessonPerformScreen> wit
   
   // Game state
   double _songTimeMs = 0.0;
-  // 145 BPM => ~414ms per beat
-  final double _beatDurationMs = 414.0;
+  // 145 BPM => ~414ms per quarter beat. Because we use 0.5 beat arrays,
+  // each array element represents an eighth note (1/2 beat) = 207ms.
+  final double _beatDurationMs = 207.0;
   int _score = 0;
   int _maxPossibleScore = 0;
   bool _isFinished = false;
@@ -402,13 +394,24 @@ class _VocalLessonPerformScreenState extends State<VocalLessonPerformScreen> wit
     // 120fps physics steps for ultra-smooth scrolling (was 16ms)
     const int songStepMs = 8;
     _lastPlayedBeat = -1; // Reset when starting
+    
+    // Play the very first beat (index 0) immediately, since the loop starts looking ahead at beat 1
+    if (_chordBeats.containsKey(0) && _audioInitialized) {
+        Future.microtask(() {
+            for (var cn in _chordBeats[0]!) {
+               final src = _noteSources[cn];
+               if (src != null) _soloud.play(src, volume: 0.45);
+            }
+        });
+    }
+
     // Optimization: separate logic from UI state
     _songTimer = Timer.periodic(const Duration(milliseconds: songStepMs), (timer) {
        _songTimeMs += songStepMs;
        
        if (sequences.isNotEmpty) {
           final currentBeat = (_songTimeMs / _beatDurationMs).floor();
-          final audioTriggerBeat = currentBeat + 1; // Play sound 1 beat early
+          final audioTriggerBeat = currentBeat + 2; // Play sound 1 full beat early (2 array indices)
           final notes = sequences.first.notes;
           
           // Play audio when entering a new beat block
@@ -463,15 +466,27 @@ class _VocalLessonPerformScreenState extends State<VocalLessonPerformScreen> wit
       if (_smoothedMidiVal == null || sequences.isEmpty) return;
       
       final currentBeat = _songTimeMs / _beatDurationMs;
-      final beatIndex = currentBeat.floor();
+      // Delay score checking until exactly at the playhead 
+      final playheadBeat = currentBeat - 1.0; 
+      final beatIndex = playheadBeat.floor();
       
       final notes = sequences.first.notes;
-      if (beatIndex >= 0 && beatIndex < notes.length && !_scoredBeats.contains(beatIndex)) {
-          final targetNoteName = notes[beatIndex] as String;
-          if (targetNoteName != '-' && targetNoteName != '=') {
+      if (beatIndex >= 0 && beatIndex < notes.length) {
+          String targetNoteName = notes[beatIndex] as String;
+          int noteStartIndex = beatIndex;
+          
+          // trace back over hold makers
+          while (targetNoteName == '=' && noteStartIndex > 0) {
+              noteStartIndex--;
+              targetNoteName = notes[noteStartIndex] as String;
+          }
+
+          if (!_scoredBeats.contains(noteStartIndex) && targetNoteName != '-' && targetNoteName != '=') {
               int targetMidi = _nameToMidi(targetNoteName);
-              if ((_smoothedMidiVal! - targetMidi).abs() <= 1.5) {
-                  _scoredBeats.add(beatIndex);
+              // Relaxed threshold: user has the entire length of the note to hit the pitch
+              // Made very forgiving (2.5 semitones) for Level 1 Lesson 1
+              if ((_smoothedMidiVal! - targetMidi).abs() <= 2.5) {
+                  _scoredBeats.add(noteStartIndex);
                   _score += 1;
               }
           }
@@ -591,10 +606,7 @@ class _VocalLessonPerformScreenState extends State<VocalLessonPerformScreen> wit
                     Navigator.of(context).pop();
                   },
                 ),
-                Text(
-                  'Score: $_score',
-                  style: const TextStyle(color: Color(0xFFE93B81), fontSize: 18, fontWeight: FontWeight.bold),
-                )
+                // Live score count removed
               ],
             ),
           ),
@@ -836,7 +848,9 @@ class VocalGraphPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     // ---- LAYOUT ----
-    final double beatWidth = 120.0; 
+    // beatWidth now represents 0.5 beats (one array element).
+    // Original beatWidth was 120.0 for 1 beat, so we make it 60.0 here
+    final double beatWidth = 60.0; 
     final double playheadX = size.width * 0.3;
     final double currentBeat = songTimeMs / beatDurationMs;
     final double scrollOffsetX = playheadX - (currentBeat * beatWidth);
@@ -862,15 +876,18 @@ class VocalGraphPainter extends CustomPainter {
     startBeat = math.max(0, startBeat);
     int endBeat = ((size.width - scrollOffsetX) / beatWidth).ceil();
     
-    int startBar = startBeat ~/ 4;
-    int endBar = endBeat ~/ 4;
+    // A full measure is 4 beats = 8 half-beats (array elements)
+    int startBar = startBeat ~/ 8;
+    int endBar = endBeat ~/ 8;
     for (int bar = startBar; bar <= endBar; bar++) {
-        final double x = scrollOffsetX + (bar * 4 * beatWidth);
+        // x position of the start of the bar
+        final double x = scrollOffsetX + (bar * 8 * beatWidth);
         final Paint bgPaint = (bar % 2 == 0) ? evenBarPaint : oddBarPaint;
-        canvas.drawRect(Rect.fromLTWH(x, 0, beatWidth * 4, size.height), bgPaint);
+        canvas.drawRect(Rect.fromLTWH(x, 0, beatWidth * 8, size.height), bgPaint);
         
+        // Draw 4 beat lines per bar (every 2 half-beats)
         for(int b = 0; b < 4; b++) {
-            final double bx = x + b * beatWidth;
+            final double bx = x + b * 2 * beatWidth;
             canvas.drawLine(Offset(bx, 0), Offset(bx, size.height), linePaint);
         }
     }
@@ -910,18 +927,19 @@ class VocalGraphPainter extends CustomPainter {
     for (int i = 0; i < notes.length; i++) {
         if (notes[i] == '-' || notes[i] == '=') continue;
         
-        final double noteX = scrollOffsetX + i * beatWidth;
-        if (noteX > size.width + beatWidth || noteX + beatWidth * 2 < -beatWidth) continue;
-        
-        int targetMidi = _nameToMidi(notes[i]);
-        final double y = midiToY(targetMidi.toDouble());
-        
         // Extend across consecutive hold markers '=' (not '-' rests)
         int holdCount = 0;
         while (i + 1 + holdCount < notes.length && notes[i + 1 + holdCount] == '=') {
            holdCount++;
         }
         double noteWidth = beatWidth * (1 + holdCount);
+        final double noteX = scrollOffsetX + i * beatWidth;
+
+        // Cull notes that are completely off screen
+        if (noteX > size.width + beatWidth || noteX + noteWidth < -beatWidth) continue;
+        
+        int targetMidi = _nameToMidi(notes[i]);
+        final double y = midiToY(targetMidi.toDouble());
         
         // Determine state for visual feedback (scoring kept for future levels)
         bool isActive = currentBeat >= i && currentBeat < i + (noteWidth / beatWidth);
@@ -962,9 +980,9 @@ class VocalGraphPainter extends CustomPainter {
         textPainter.layout();
         textPainter.paint(canvas, Offset(noteX + 12, y - textPainter.height / 2));
 
-        // "mum" text above the note
+        // "La..." text above the note
         textPainter.text = TextSpan(
-          text: 'mum',
+          text: 'La...',
           style: TextStyle(
             color: isActive 
                 ? const Color(0xFFFF9ECA) // Bright pastel pink when active
@@ -982,8 +1000,8 @@ class VocalGraphPainter extends CustomPainter {
         textPainter.paint(canvas, Offset(noteX + 4, y - 18 - textPainter.height));
     }
 
-    // ---- 4. PLAYHEAD LINE (Moved to audio trigger 1 beat ahead) ----
-    final double audioTriggerX = playheadX + beatWidth;
+    // ---- 4. PLAYHEAD LINE (Moved to audio trigger 1 full beat ahead) ----
+    final double audioTriggerX = playheadX + (beatWidth * 2);
     final Paint playheadPaint = Paint()
       ..color = Colors.white.withOpacity(0.2)
       ..strokeWidth = 2.0;
