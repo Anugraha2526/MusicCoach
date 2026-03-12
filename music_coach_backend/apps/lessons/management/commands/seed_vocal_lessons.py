@@ -46,15 +46,19 @@ class Command(BaseCommand):
         )
         self.stdout.write(f'Ensured Level 2 module: {module2.title}')
 
-        # Create Lesson 1 for Level 1 (Placeholder)
+        # Create Lesson 1 for Level 1: Ascent & Descent
         lesson1_1, created = Lesson.objects.get_or_create(
             module=module1,
             order=1,
-            defaults={'title': "Coming Soon", 'lesson_type': 'video'}
+            defaults={'title': "Ascent & Descent", 'lesson_type': 'practice'}
         )
         if not created:
-            lesson1_1.title = "Coming Soon"
+            lesson1_1.title = "Ascent & Descent"
             lesson1_1.save()
+            deleted_count = lesson1_1.sequences.all().delete()[0]
+            self.stdout.write(f'Cleared {deleted_count} old sequence(s) from Level 1 Lesson 1')
+        else:
+            self.stdout.write(self.style.SUCCESS(f'Created lesson: {lesson1_1.title}'))
 
         # Create Lesson 1 for Level 2: Singing on "mum"
         lesson2_1, created = Lesson.objects.get_or_create(
