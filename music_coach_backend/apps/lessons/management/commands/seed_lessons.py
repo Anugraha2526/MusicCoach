@@ -11,6 +11,7 @@ This creates:
 
 from django.core.management.base import BaseCommand
 from apps.lessons.models import Module, Lesson, PracticeSequence
+from apps.instruments.models import Instrument
 
 
 class Command(BaseCommand):
@@ -18,10 +19,14 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         self.stdout.write('Seeding lesson data...')
+        
+        # Get Piano Instrument
+        piano_instrument = Instrument.objects.get(type='piano')
 
         # Create Module (Level 1)
         module, created = Module.objects.get_or_create(
             order=1,
+            instrument=piano_instrument,
             defaults={
                 'title': 'Level 1',
                 'description': 'Introduction to Piano - Learn the basics of piano playing',
@@ -270,6 +275,7 @@ class Command(BaseCommand):
         # ==========================================
         module2, created = Module.objects.get_or_create(
             order=2,
+            instrument=piano_instrument,
             defaults={
                 'title': 'Level 2',
                 'description': 'Advanced Patterns - Challenge your memory and rhythm',
@@ -504,6 +510,7 @@ class Command(BaseCommand):
         # ==========================================
         module3, created = Module.objects.get_or_create(
             order=3,
+            instrument=piano_instrument,
             defaults={
                 'title': 'Level 3',
                 'description': 'Full Octave - Expand your range across more keys',
@@ -717,6 +724,7 @@ class Command(BaseCommand):
         # ==========================================
         module4, created = Module.objects.get_or_create(
             order=4,
+            instrument=piano_instrument,
             defaults={
                 'title': 'Level 4',
                 'description': 'Advanced Melodies - Master complex sequences',

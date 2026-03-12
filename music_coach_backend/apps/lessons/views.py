@@ -18,7 +18,10 @@ class BaseLessonsView(APIView):
     Base view for fetching all lesson modules.
     """
     def get(self, request):
+        instrument_type = request.query_params.get('instrument')
         modules = Module.objects.all()
+        if instrument_type:
+            modules = modules.filter(instrument__type=instrument_type)
         serializer = ModuleSerializer(modules, many=True)
         return Response(serializer.data)
 

@@ -7,11 +7,18 @@ import 'auth_service.dart';
 /// Service for fetching lesson data from the backend API.
 class LessonService {
   /// Fetch all lesson modules and their nested lessons.
-  static Future<List<LessonModule>> fetchModules() async {
+  /// Fetch all lesson modules and their nested lessons.
+  static Future<List<LessonModule>> fetchModules({String? instrumentType}) async {
     try {
       final token = await AuthService.getToken();
+      
+      String url = '${ApiConfig.baseUrl}/api/lessons/';
+      if (instrumentType != null) {
+        url += '?instrument=$instrumentType';
+      }
+      
       var response = await http.get(
-        Uri.parse('${ApiConfig.baseUrl}/api/lessons/'),
+        Uri.parse(url),
         headers: {
           'Content-Type': 'application/json',
           if (token != null) 'Authorization': 'Bearer $token',
@@ -23,7 +30,7 @@ class LessonService {
         if (refreshSuccess) {
           final newToken = await AuthService.getToken();
           response = await http.get(
-            Uri.parse('${ApiConfig.baseUrl}/api/lessons/'),
+            Uri.parse(url),
             headers: {
               'Content-Type': 'application/json',
               if (newToken != null) 'Authorization': 'Bearer $newToken',

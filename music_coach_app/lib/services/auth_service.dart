@@ -218,9 +218,14 @@ class AuthService {
     return null;
   }
 
-  static Future<bool> updateProfile(String username, String email) async {
+  static Future<bool> updateProfile(String username, String email, {double? naturalPitch}) async {
     final token = await getToken();
     if (token == null) return false;
+
+    final Map<String, dynamic> bodyData = {'username': username, 'email': email};
+    if (naturalPitch != null) {
+      bodyData['natural_pitch'] = naturalPitch;
+    }
 
     var response = await http.put(
       Uri.parse(ApiConfig.profile),
@@ -228,7 +233,7 @@ class AuthService {
         'Content-Type': 'application/json',
         'Authorization': 'Bearer $token',
       },
-      body: jsonEncode({'username': username, 'email': email}),
+      body: jsonEncode(bodyData),
     );
 
     if (response.statusCode == 401) {
@@ -241,7 +246,7 @@ class AuthService {
             'Content-Type': 'application/json',
             'Authorization': 'Bearer $newToken',
           },
-          body: jsonEncode({'username': username, 'email': email}),
+          body: jsonEncode(bodyData),
         );
       }
     }

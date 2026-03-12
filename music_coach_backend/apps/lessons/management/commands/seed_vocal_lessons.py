@@ -1,0 +1,78 @@
+"""
+Management command to seed Vocal Level 1, Lesson 1 data.
+
+Run with: python manage.py seed_vocal_lessons
+
+This creates:
+- 1 Module (Level 1) linked to Vocals instrument
+- 1 Lesson (Lesson 1: Singing on 'mum')
+- No practice sequences — notes are generated dynamically on the frontend
+  based on the user's calibrated natural pitch.
+"""
+
+from django.core.management.base import BaseCommand
+from apps.lessons.models import Module, Lesson, PracticeSequence
+from apps.instruments.models import Instrument
+
+
+class Command(BaseCommand):
+    help = "Seed database with Vocal Level 1, Lesson 1 content"
+
+    def handle(self, *args, **options):
+        self.stdout.write('Seeding vocal lesson data...')
+
+        # Find or create Vocals instrument
+        vocals_instrument, created = Instrument.objects.get_or_create(
+            name='Vocal Lessons',
+            defaults={
+                'type': 'vocals',
+                'image_url': '',
+            }
+        )
+
+        # Create Module 1 (Vocal Level 1)
+        module1, _ = Module.objects.get_or_create(
+            order=1,
+            instrument=vocals_instrument,
+            defaults={'title': 'Level 1', 'description': 'Introduction to Vocals'}
+        )
+        self.stdout.write(f'Ensured Level 1 module: {module1.title}')
+
+        # Create Module 2 (Vocal Level 2)
+        module2, _ = Module.objects.get_or_create(
+            order=2,
+            instrument=vocals_instrument,
+            defaults={'title': 'Level 2', 'description': 'Vocal Warmups'}
+        )
+        self.stdout.write(f'Ensured Level 2 module: {module2.title}')
+
+        # Create Lesson 1 for Level 1 (Placeholder)
+        lesson1_1, created = Lesson.objects.get_or_create(
+            module=module1,
+            order=1,
+            defaults={'title': "Coming Soon", 'lesson_type': 'video'}
+        )
+        if not created:
+            lesson1_1.title = "Coming Soon"
+            lesson1_1.save()
+
+        # Create Lesson 1 for Level 2: Singing on "mum"
+        lesson2_1, created = Lesson.objects.get_or_create(
+            module=module2,
+            order=1,
+            defaults={'title': "Singing on 'mum'", 'lesson_type': 'practice'}
+        )
+
+        if not created:
+            lesson2_1.title = "Singing on 'mum'"
+            lesson2_1.save()
+            deleted_count = lesson2_1.sequences.all().delete()[0]
+            self.stdout.write(f'Cleared {deleted_count} old sequence(s) from Level 2 Lesson 1')
+        else:
+            self.stdout.write(self.style.SUCCESS(f'Created lesson: {lesson2_1.title}'))
+
+        self.stdout.write(self.style.SUCCESS(
+            "\nSuccessfully seeded vocal lessons.\n"
+            "Note: sequences are generated dynamically on the frontend "
+            "based on each user's natural pitch."
+        ))

@@ -22,6 +22,7 @@ class Module(models.Model):
     """
     title = models.CharField(max_length=200)
     description = models.TextField(blank=True)
+    instrument = models.ForeignKey('instruments.Instrument', on_delete=models.CASCADE, related_name='modules', null=True, blank=True)
     order = models.PositiveIntegerField(default=0, help_text="Display order of the module")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
