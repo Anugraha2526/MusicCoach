@@ -46,6 +46,20 @@ class Command(BaseCommand):
         )
         self.stdout.write(f'Ensured Level 2 module: {module2.title}')
 
+        # Create Lesson 1 for Level 2: Wave Pattern (12321 pattern)
+        lesson2_1, created = Lesson.objects.get_or_create(
+            module=module2,
+            order=1,
+            defaults={'title': "Little Steps (12321)", 'lesson_type': 'practice'}
+        )
+        if not created:
+            lesson2_1.title = "Little Steps (12321)"
+            lesson2_1.save()
+            deleted_count = lesson2_1.sequences.all().delete()[0]
+            self.stdout.write(f'Cleared {deleted_count} old sequence(s) from Level 2 Lesson 1')
+        else:
+            self.stdout.write(self.style.SUCCESS(f'Created lesson: {lesson2_1.title}'))
+
         # Create Lesson 1 for Level 1: Ascent & Descent
         lesson1_1, created = Lesson.objects.get_or_create(
             module=module1,
@@ -115,21 +129,37 @@ class Command(BaseCommand):
             self.stdout.write(f'Cleared {deleted_count} old sequence(s) from Level 1 Lesson 5')
         else:
             self.stdout.write(self.style.SUCCESS(f'Created lesson: {lesson1_5.title}'))
+        # Create Modules 3, 4, 5
+        module3, _ = Module.objects.get_or_create(
+            order=3, instrument=vocals_instrument,
+            defaults={'title': 'Level 3', 'description': 'Vocal Exercises'}
+        )
+        module4, _ = Module.objects.get_or_create(
+            order=4, instrument=vocals_instrument,
+            defaults={'title': 'Level 4', 'description': 'Advanced Vocal Exercises'}
+        )
+        module5, _ = Module.objects.get_or_create(
+            order=5, instrument=vocals_instrument,
+            defaults={'title': 'Level 5', 'description': 'Vocal Mastery'}
+        )
 
-        # Create Lesson 1 for Level 2: Singing on "mum"
-        lesson2_1, created = Lesson.objects.get_or_create(
-            module=module2,
+        # Create Lesson 1 for Level 5: Singing on "mum"
+        lesson5_1, created = Lesson.objects.get_or_create(
+            module=module5,
             order=1,
             defaults={'title': "Singing on 'mum'", 'lesson_type': 'practice'}
         )
 
         if not created:
-            lesson2_1.title = "Singing on 'mum'"
-            lesson2_1.save()
-            deleted_count = lesson2_1.sequences.all().delete()[0]
-            self.stdout.write(f'Cleared {deleted_count} old sequence(s) from Level 2 Lesson 1')
+            lesson5_1.title = "Singing on 'mum'"
+            lesson5_1.save()
+            deleted_count = lesson5_1.sequences.all().delete()[0]
+            self.stdout.write(f'Cleared {deleted_count} old sequence(s) from Level 5 Lesson 1')
         else:
-            self.stdout.write(self.style.SUCCESS(f'Created lesson: {lesson2_1.title}'))
+            self.stdout.write(self.style.SUCCESS(f'Created lesson: {lesson5_1.title}'))
+
+        # Clean up old Level 2 Lesson 1 if it exists (moved to Level 5)
+        Lesson.objects.filter(module=module2, order=1, title="Singing on 'mum'").delete()
 
         self.stdout.write(self.style.SUCCESS(
             "\nSuccessfully seeded vocal lessons.\n"
