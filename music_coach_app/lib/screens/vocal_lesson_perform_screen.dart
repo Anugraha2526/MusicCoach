@@ -88,12 +88,25 @@ class _VocalLessonPerformScreenState extends State<VocalLessonPerformScreen> wit
     final bool isSwifter = widget.lessonTitle?.toLowerCase().contains('swifter') ?? false;
     final bool isPacingUp = widget.lessonTitle?.toLowerCase().contains('pacing up') ?? false;
     final String lTitle = widget.lessonTitle?.toLowerCase() ?? '';
-    final bool isLesson4 = lTitle.contains('double') || lTitle.contains('lesson 4');
+    final bool isLesson4 = lTitle.contains('double');
+    final bool isChugAlong = lTitle.contains('chug');
 
     // 4 beats of lead-in rest (8 half-beats since we need 0.5 resolution)
     allNotes.addAll(List.filled(8, '-'));
 
-    if (isLesson4) {
+    if (isChugAlong) {
+      // Lesson 5: note, gap, note, gap, note, note, note, gap — up to 5th and back
+      const l5Pattern = [0, 1, 2, 3, 4, 4, 3, 2, 1, 0];
+      for (int p = 0; p < l5Pattern.length; p++) {
+        final int midi = startMidi + scaleIntervals[l5Pattern[p]];
+        final String name = _midiToNoteName(midi);
+        // note, gap, note, gap, note, note, note, gap
+        // note = quarter (2 half-beats), gap = quarter (2 half-beats)
+        allNotes.addAll([name, '=', '-', '-']); // note, gap
+        allNotes.addAll([name, '=', '-', '-']); // note, gap
+        allNotes.addAll([name, '=', name, '=', name, '=', '-', '-']); // note, note, note, gap
+      }
+    } else if (isLesson4) {
       // Lesson 4: quarter note, gap, quarter note, gap — up to 5th degree and back
       // Only use first 5 scale degrees: [0, 2, 4, 5, 7]
       const l4Pattern = [0, 1, 2, 3, 4, 4, 3, 2, 1, 0];
