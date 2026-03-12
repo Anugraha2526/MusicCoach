@@ -87,28 +87,48 @@ class _VocalLessonPerformScreenState extends State<VocalLessonPerformScreen> wit
     final List<String> allNotes = [];
     final bool isSwifter = widget.lessonTitle?.toLowerCase().contains('swifter') ?? false;
     final bool isPacingUp = widget.lessonTitle?.toLowerCase().contains('pacing up') ?? false;
+    final String lTitle = widget.lessonTitle?.toLowerCase() ?? '';
+    final bool isLesson4 = lTitle.contains('double') || lTitle.contains('lesson 4');
 
     // 4 beats of lead-in rest (8 half-beats since we need 0.5 resolution)
     allNotes.addAll(List.filled(8, '-'));
 
-    for (int p = 0; p < pattern.length; p++) {
-      final int midi = startMidi + scaleIntervals[pattern[p]];
-      final String name = _midiToNoteName(midi);
-      
-      if (isPacingUp) {
-        // Quarter note = 1 beat = 2 half-beats (1 initial + 1 hold), no rest
-        allNotes.add(name);
-        allNotes.addAll(List.filled(1, '='));
-      } else if (isSwifter) {
-        // Half note = 2 beats = 4 half-beats (1 initial + 3 holds), no rest
-        allNotes.add(name);
-        allNotes.addAll(List.filled(3, '='));
-      } else {
-        // 3.5 beats note = 7 half-beats (1 initial + 6 holds)
-        allNotes.add(name);
-        allNotes.addAll(List.filled(6, '='));
-        // 0.5 beat rest = 1 half-beat
-        allNotes.add('-');
+    if (isLesson4) {
+      // Lesson 4: quarter note, gap, quarter note, gap — up to 5th degree and back
+      // Only use first 5 scale degrees: [0, 2, 4, 5, 7]
+      const l4Pattern = [0, 1, 2, 3, 4, 4, 3, 2, 1, 0];
+      for (int p = 0; p < l4Pattern.length; p++) {
+        final int midi = startMidi + scaleIntervals[l4Pattern[p]];
+        final String name = _midiToNoteName(midi);
+        // Play note twice: note, gap, note, gap
+        for (int rep = 0; rep < 2; rep++) {
+          // Quarter note = 2 half-beats
+          allNotes.add(name);
+          allNotes.add('=');
+          // Quarter rest gap = 2 half-beats
+          allNotes.addAll(['-', '-']);
+        }
+      }
+    } else {
+      for (int p = 0; p < pattern.length; p++) {
+        final int midi = startMidi + scaleIntervals[pattern[p]];
+        final String name = _midiToNoteName(midi);
+        
+        if (isPacingUp) {
+          // Quarter note = 1 beat = 2 half-beats (1 initial + 1 hold), no rest
+          allNotes.add(name);
+          allNotes.addAll(List.filled(1, '='));
+        } else if (isSwifter) {
+          // Half note = 2 beats = 4 half-beats (1 initial + 3 holds), no rest
+          allNotes.add(name);
+          allNotes.addAll(List.filled(3, '='));
+        } else {
+          // 3.5 beats note = 7 half-beats (1 initial + 6 holds)
+          allNotes.add(name);
+          allNotes.addAll(List.filled(6, '='));
+          // 0.5 beat rest = 1 half-beat
+          allNotes.add('-');
+        }
       }
     }
 
