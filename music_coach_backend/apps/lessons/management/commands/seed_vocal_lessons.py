@@ -60,6 +60,20 @@ class Command(BaseCommand):
         else:
             self.stdout.write(self.style.SUCCESS(f'Created lesson: {lesson2_1.title}'))
 
+        # Create Lesson 2 for Level 2: Go Further (123454321)
+        lesson2_2, created = Lesson.objects.get_or_create(
+            module=module2,
+            order=2,
+            defaults={'title': "Go Further (123454321)", 'lesson_type': 'practice'}
+        )
+        if not created:
+            lesson2_2.title = "Go Further (123454321)"
+            lesson2_2.save()
+            deleted_count = lesson2_2.sequences.all().delete()[0]
+            self.stdout.write(f'Cleared {deleted_count} old sequence(s) from Level 2 Lesson 2')
+        else:
+            self.stdout.write(self.style.SUCCESS(f'Created lesson: {lesson2_2.title}'))
+
         # Create Lesson 1 for Level 1: Ascent & Descent
         lesson1_1, created = Lesson.objects.get_or_create(
             module=module1,
