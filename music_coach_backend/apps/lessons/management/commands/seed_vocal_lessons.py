@@ -199,6 +199,29 @@ class Command(BaseCommand):
             defaults={'title': 'Level 5', 'description': 'Vocal Mastery'}
         )
 
+        # Create Lessons for Level 3 (Same patterns as Level 2 but for "Aa...")
+        l3_titles = [
+            "Little Steps (12321)",
+            "Go Further (123454321)",
+            "Jumps (15151)",
+            "Ascent (12345)",
+            "Descent (54321)"
+        ]
+        
+        for idx, title in enumerate(l3_titles, start=1):
+            lesson, created = Lesson.objects.get_or_create(
+                module=module3,
+                order=idx,
+                defaults={'title': title, 'lesson_type': 'practice'}
+            )
+            if not created:
+                lesson.title = title
+                lesson.save()
+                deleted_count = lesson.sequences.all().delete()[0]
+                self.stdout.write(f'Cleared {deleted_count} old sequence(s) from Level 3 Lesson {idx}')
+            else:
+                self.stdout.write(self.style.SUCCESS(f'Created lesson: {lesson.title}'))
+
         # Create Lesson 1 for Level 5: Singing on "mum"
         lesson5_1, created = Lesson.objects.get_or_create(
             module=module5,

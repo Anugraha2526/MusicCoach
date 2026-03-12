@@ -747,6 +747,7 @@ class _VocalLessonPerformScreenState extends State<VocalLessonPerformScreen> wit
                     smoothedMidiVal: _smoothedMidiVal,
                     scoredBeats: _scoredBeats,
                     lessonTitle: widget.lessonTitle,
+                    targetLevel: widget.targetLevel,
                   ),
                 );
               }
@@ -974,6 +975,7 @@ class VocalGraphPainter extends CustomPainter {
   final double? smoothedMidiVal;
   final Set<int> scoredBeats;
   final String? lessonTitle;
+  final int? targetLevel;
 
   VocalGraphPainter({
     required this.centerMidi,
@@ -986,6 +988,7 @@ class VocalGraphPainter extends CustomPainter {
     required this.smoothedMidiVal,
     required this.scoredBeats,
     this.lessonTitle,
+    this.targetLevel,
   });
 
   String _midiToName(int midi) {
@@ -1147,7 +1150,11 @@ class VocalGraphPainter extends CustomPainter {
         // Text above the note
         final String lTitle = lessonTitle?.toLowerCase() ?? '';
         final bool isL2 = lTitle.contains('wave') || lTitle.contains('12321') || lTitle.contains('further') || lTitle.contains('123454321') || lTitle.contains('jumps') || lTitle.contains('15151') || lTitle.contains('ascent') || lTitle.contains('12345') || lTitle.contains('descent') || lTitle.contains('54321');
-        final String lyricText = isL2 ? 'Mmm...' : 'La...';
+        
+        String lyricText = 'La...';
+        if (isL2) {
+            lyricText = targetLevel == 3 ? 'Aa...' : 'Mmm...';
+        }
 
         textPainter.text = TextSpan(
           text: lyricText,
