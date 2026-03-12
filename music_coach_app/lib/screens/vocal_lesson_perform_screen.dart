@@ -86,6 +86,7 @@ class _VocalLessonPerformScreenState extends State<VocalLessonPerformScreen> wit
 
     final List<String> allNotes = [];
     final bool isSwifter = widget.lessonTitle?.toLowerCase().contains('swifter') ?? false;
+    final bool isPacingUp = widget.lessonTitle?.toLowerCase().contains('pacing up') ?? false;
 
     // 4 beats of lead-in rest (8 half-beats since we need 0.5 resolution)
     allNotes.addAll(List.filled(8, '-'));
@@ -94,7 +95,11 @@ class _VocalLessonPerformScreenState extends State<VocalLessonPerformScreen> wit
       final int midi = startMidi + scaleIntervals[pattern[p]];
       final String name = _midiToNoteName(midi);
       
-      if (isSwifter) {
+      if (isPacingUp) {
+        // Quarter note = 1 beat = 2 half-beats (1 initial + 1 hold), no rest
+        allNotes.add(name);
+        allNotes.addAll(List.filled(1, '='));
+      } else if (isSwifter) {
         // Half note = 2 beats = 4 half-beats (1 initial + 3 holds), no rest
         allNotes.add(name);
         allNotes.addAll(List.filled(3, '='));
