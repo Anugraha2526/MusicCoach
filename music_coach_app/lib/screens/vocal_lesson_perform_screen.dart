@@ -90,11 +90,28 @@ class _VocalLessonPerformScreenState extends State<VocalLessonPerformScreen> wit
     final String lTitle = widget.lessonTitle?.toLowerCase() ?? '';
     final bool isLesson4 = lTitle.contains('double');
     final bool isChugAlong = lTitle.contains('chug');
+    final bool isL2L1 = lTitle.contains('wave') || lTitle.contains('12321');
 
     // 4 beats of lead-in rest (8 half-beats since we need 0.5 resolution)
     allNotes.addAll(List.filled(8, '-'));
 
-    if (isChugAlong) {
+    if (isL2L1) {
+      // Level 2 Lesson 1: 12321 wave pattern stepping up the scale
+      // Groups: start at degree 0,1,2,3... up to 7 (octave jump)
+      // Each group uses a MAJOR 12321 shape relative to the root note
+      for (int g = 0; g <= 7; g++) {
+        final int rootMidi = startMidi + scaleIntervals[g];
+        final majPattern = [0, 2, 4, 2, 0]; // Major scale 1-2-3-2-1 semitones
+        for (int semitoneOffset in majPattern) {
+          final int midi = rootMidi + semitoneOffset;
+          final String name = _midiToNoteName(midi);
+          // Quarter note = 2 half-beats
+          allNotes.addAll([name, '=']);
+        }
+        // 3 quarter-beat gaps = 6 half-beats
+        allNotes.addAll(List.filled(6, '-'));
+      }
+    } else if (isChugAlong) {
       // Lesson 5: note, gap, note, gap, note, note, note, gap — up to 5th and back
       const l5Pattern = [0, 1, 2, 3, 4, 4, 3, 2, 1, 0];
       for (int p = 0; p < l5Pattern.length; p++) {
@@ -153,7 +170,10 @@ class _VocalLessonPerformScreenState extends State<VocalLessonPerformScreen> wit
     final int startMidi = naturalPitchMidi.round();
     // Root major chord: 1, 3, 5
     const chordIntervals = [0, 4, 7]; 
+    const scaleIntervals = [0, 2, 4, 5, 7, 9, 11, 12];
     final Map<int, List<String>> playMap = {};
+    final String lTitle = widget.lessonTitle?.toLowerCase() ?? '';
+    final bool isL2L1 = lTitle.contains('wave') || lTitle.contains('12321');
 
     // Lead-in rest (beat 0): play full root chord
     playMap[0] = chordIntervals.map((i) => _midiToNoteName(startMidi + i)).toList();
@@ -161,6 +181,19 @@ class _VocalLessonPerformScreenState extends State<VocalLessonPerformScreen> wit
     // On the 3rd beat of the 4-beat lead-in (half-beat index 4)
     // Play the starting root note so the user can hear it before singing
     playMap[4] = [_midiToNoteName(startMidi)];
+
+    if (isL2L1) {
+      // For L2L1: each group = 5 quarter notes (10 half-beats) + 3 gaps (6 half-beats) = 16 half-beats
+      // Note: we have 8 groups (g=0 to 7).
+      // Chord plays on the 2nd gap beat of each group EXCEPT the last.
+      // 2nd gap = offset 12 from group start (10 notes + 2 gap half-beats)
+      for (int g = 0; g < 7; g++) { 
+        final int groupStart = 8 + g * 16; // 8 lead-in + g * 16 per group
+        final int chordBeat = groupStart + 12; // 2nd gap beat
+        final int nextRoot = startMidi + scaleIntervals[g + 1];
+        playMap[chordBeat] = chordIntervals.map((i) => _midiToNoteName(nextRoot + i)).toList();
+      }
+    }
 
     return playMap;
   }
@@ -628,6 +661,7 @@ class _VocalLessonPerformScreenState extends State<VocalLessonPerformScreen> wit
                     notes: notes,
                     smoothedMidiVal: _smoothedMidiVal,
                     scoredBeats: _scoredBeats,
+                    lessonTitle: widget.lessonTitle,
                   ),
                 );
               }
@@ -854,6 +888,7 @@ class VocalGraphPainter extends CustomPainter {
   final List<String> notes;
   final double? smoothedMidiVal;
   final Set<int> scoredBeats;
+  final String? lessonTitle;
 
   VocalGraphPainter({
     required this.centerMidi,
@@ -865,6 +900,7 @@ class VocalGraphPainter extends CustomPainter {
     required this.notes,
     required this.smoothedMidiVal,
     required this.scoredBeats,
+    this.lessonTitle,
   });
 
   String _midiToName(int midi) {
@@ -898,14 +934,14 @@ class VocalGraphPainter extends CustomPainter {
     final double currentBeat = songTimeMs / beatDurationMs;
     final double scrollOffsetX = playheadX - (currentBeat * beatWidth);
     
-    // Semitone span: C3 (48) to B3 (59) = 12 semitones, add 2 for padding = 14 
-    final double semitoneSpan = 14.0;
+    // Semitone span: increased to 24 (2 octaves) so high notes in scale run don't go off screen
+    final double semitoneSpan = 24.0;
     
     // Leave 80px at the bottom so the minimap area does not overlap with notes
     final double usableTopHeight = size.height - 80.0;
     final double semitoneHeight = usableTopHeight / semitoneSpan;
     
-    // Helper to convert MIDI to Y position
+    // Helper to convert MIDI to Y position (centers the view around the natural pitch)
     double midiToY(double midi) {
       return ((centerMidi + semitoneSpan / 2) - midi) * semitoneHeight;
     }
@@ -1023,9 +1059,13 @@ class VocalGraphPainter extends CustomPainter {
         textPainter.layout();
         textPainter.paint(canvas, Offset(noteX + 12, y - textPainter.height / 2));
 
-        // "La..." text above the note
+        // Text above the note
+        final String lTitle = lessonTitle?.toLowerCase() ?? '';
+        final bool isL2 = lTitle.contains('wave') || lTitle.contains('12321');
+        final String lyricText = isL2 ? 'Mmm...' : 'La...';
+
         textPainter.text = TextSpan(
-          text: 'La...',
+          text: lyricText,
           style: TextStyle(
             color: isActive 
                 ? const Color(0xFFFF9ECA) // Bright pastel pink when active
