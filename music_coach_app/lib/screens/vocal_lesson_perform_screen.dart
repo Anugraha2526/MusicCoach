@@ -74,11 +74,10 @@ class _VocalLessonPerformScreenState extends State<VocalLessonPerformScreen> wit
     return '${_chromaticNames[noteIndex]}$octave';
   }
 
-  /// Generate the full note list for Level 1 Lesson 1 (Ascent & Descent).
-  /// Starting from natural pitch, going up the major scale and back down to the octave.
-  /// Pattern: 1, 2, 3, 4, 5, 6, 7, 8, 8, 7, 6, 5, 4, 3, 2, 1
-  /// Note duration: 3.5 beats note, 0.5 beat rest.
-  /// (Since we need 0.5 beat resolution, we double the beat timeline: 1 beat = 2 array elements).
+  /// Generate the full note list for vocal lessons.
+  /// Same C-to-C major scale pattern, but duration varies by lesson:
+  /// - "Ascent & Descent": 3.5 beat notes, 0.5 beat rest between
+  /// - "Swifter": 2 beat (half) notes, no rest between
   List<String> _generateVocalNotes(double naturalPitchMidi) {
     final int startMidi = naturalPitchMidi.round();
     // Major-scale intervals: 1, 2, 3, 4, 5, 6, 7, 8 (octave)
@@ -86,6 +85,7 @@ class _VocalLessonPerformScreenState extends State<VocalLessonPerformScreen> wit
     const pattern = [0, 1, 2, 3, 4, 5, 6, 7, 7, 6, 5, 4, 3, 2, 1, 0];
 
     final List<String> allNotes = [];
+    final bool isSwifter = widget.lessonTitle?.toLowerCase().contains('swifter') ?? false;
 
     // 4 beats of lead-in rest (8 half-beats since we need 0.5 resolution)
     allNotes.addAll(List.filled(8, '-'));
@@ -94,12 +94,17 @@ class _VocalLessonPerformScreenState extends State<VocalLessonPerformScreen> wit
       final int midi = startMidi + scaleIntervals[pattern[p]];
       final String name = _midiToNoteName(midi);
       
-      // 3.5 beats note = 7 half-beats (1 initial + 6 holds)
-      allNotes.add(name);
-      allNotes.addAll(List.filled(6, '='));
-      
-      // 0.5 beat rest = 1 half-beat
-      allNotes.add('-');
+      if (isSwifter) {
+        // Half note = 2 beats = 4 half-beats (1 initial + 3 holds), no rest
+        allNotes.add(name);
+        allNotes.addAll(List.filled(3, '='));
+      } else {
+        // 3.5 beats note = 7 half-beats (1 initial + 6 holds)
+        allNotes.add(name);
+        allNotes.addAll(List.filled(6, '='));
+        // 0.5 beat rest = 1 half-beat
+        allNotes.add('-');
+      }
     }
 
     return allNotes;
