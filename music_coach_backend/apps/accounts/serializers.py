@@ -34,7 +34,7 @@ class ChangePasswordSerializer(serializers.Serializer):
 class ProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = CustomUser
-        fields = ['id', 'username', 'email', 'role']
+        fields = ['id', 'username', 'email', 'role', 'natural_pitch']
         extra_kwargs = {'email': {'required': True}}
 
 # Password Reset Request Serializer

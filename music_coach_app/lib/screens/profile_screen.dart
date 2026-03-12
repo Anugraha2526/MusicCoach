@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'dart:math' as math;
 import '../services/auth_service.dart';
+import 'vocal_pitch_calibration_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   @override
@@ -13,6 +15,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   final usernameController = TextEditingController();
   final emailController = TextEditingController();
+  double? _naturalPitch;
 
   @override
   void initState() {
@@ -30,6 +33,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       if (profile != null) {
         usernameController.text = profile['username'] ?? '';
         emailController.text = profile['email'] ?? '';
+        _naturalPitch = profile['natural_pitch'];
       }
     }
 
@@ -63,6 +67,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
             : 'Failed to update profile'),
       ),
     );
+  }
+
+  String _midiToName(double freqHz) {
+    if (freqHz <= 0) return '?';
+    double midi = 69 + 12 * (math.log(freqHz / 440.0) / math.ln2);
+    List<String> notes = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'Bb', 'B'];
+    int m = midi.round();
+    int noteIndex = m % 12;
+    int octave = (m ~/ 12) - 1;
+    return '${notes[noteIndex]}$octave';
   }
 
   @override
@@ -205,6 +219,65 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
                 filled: true,
                 fillColor: Colors.white.withOpacity(0.05),
+              ),
+            ),
+            const SizedBox(height: 16),
+            
+            // Natural Pitch Display
+            InkWell(
+              onTap: () {
+                 if (!isLoggedIn) return;
+                 Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                       builder: (context) => VocalPitchCalibrationScreen(
+                          onCalibrationComplete: (double pitchHz) async {
+                             // Save to backend
+                             await AuthService.updateProfile(
+                                usernameController.text.trim(),
+                                emailController.text.trim(),
+                                naturalPitch: pitchHz,
+                             );
+                             // Update local state and pop
+                             setState(() {
+                                _naturalPitch = pitchHz;
+                             });
+                             Navigator.pop(context);
+                             ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Natural pitch updated successfully!')),
+                             );
+                          },
+                       ),
+                    ),
+                 );
+              },
+              borderRadius: BorderRadius.circular(12),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+                decoration: BoxDecoration(
+                   color: Colors.white.withOpacity(0.05),
+                   borderRadius: BorderRadius.circular(12),
+                   border: Border.all(color: secondaryText.withOpacity(0.5)),
+                ),
+                child: Row(
+                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                   children: [
+                      Text('Natural Pitch', style: TextStyle(color: secondaryText, fontSize: 16)),
+                      const SizedBox(width: 8),
+                      Flexible(
+                        child: Text(
+                           _naturalPitch != null ? '${_naturalPitch!.toStringAsFixed(1)} Hz (${_midiToName(_naturalPitch!)})' : 'Not Calibrated',
+                           textAlign: TextAlign.right,
+                           style: TextStyle(
+                              color: _naturalPitch != null ? const Color(0xFFE93B81) : secondaryText,
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                           ),
+                        ),
+                      ),
+                   ]
+                ),
               ),
             ),
             const SizedBox(height: 32),
