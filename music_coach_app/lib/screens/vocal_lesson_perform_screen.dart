@@ -93,6 +93,8 @@ class _VocalLessonPerformScreenState extends State<VocalLessonPerformScreen> wit
     final bool isL2L1 = lTitle.contains('wave') || lTitle.contains('12321');
     final bool isL2L2 = lTitle.contains('further') || lTitle.contains('123454321');
     final bool isL2L3 = lTitle.contains('jumps') || lTitle.contains('15151');
+    final bool isL2L4 = lTitle.contains('ascent') || lTitle.contains('12345');
+    final bool isL2L5 = lTitle.contains('descent') || lTitle.contains('54321');
 
     // 4 beats of lead-in rest (8 half-beats since we need 0.5 resolution)
     allNotes.addAll(List.filled(8, '-'));
@@ -132,6 +134,34 @@ class _VocalLessonPerformScreenState extends State<VocalLessonPerformScreen> wit
       for (int g = 0; g <= 4; g++) {
         final int rootMidi = startMidi + scaleIntervals[g];
         final majPattern = [0, 7, 0, 7, 0]; // Major scale 1st and 5th (+7 semitones)
+        for (int semitoneOffset in majPattern) {
+          final int midi = rootMidi + semitoneOffset;
+          final String name = _midiToNoteName(midi);
+          // Quarter note = 2 half-beats
+          allNotes.addAll([name, '=']);
+        }
+        // 3 quarter-beat gaps = 6 half-beats
+        allNotes.addAll(List.filled(6, '-'));
+      }
+    } else if (isL2L4) {
+      // Level 2 Lesson 4: 12345 ascent pattern stepping up the scale, up to the 5th scale degree (g=4)
+      for (int g = 0; g <= 4; g++) {
+        final int rootMidi = startMidi + scaleIntervals[g];
+        final majPattern = [0, 2, 4, 5, 7]; // Major scale 1-2-3-4-5 semitones
+        for (int semitoneOffset in majPattern) {
+          final int midi = rootMidi + semitoneOffset;
+          final String name = _midiToNoteName(midi);
+          // Quarter note = 2 half-beats
+          allNotes.addAll([name, '=']);
+        }
+        // 3 quarter-beat gaps = 6 half-beats
+        allNotes.addAll(List.filled(6, '-'));
+      }
+    } else if (isL2L5) {
+      // Level 2 Lesson 5: 54321 descent pattern stepping up the scale, up to the 5th scale degree (g=4)
+      for (int g = 0; g <= 4; g++) {
+        final int rootMidi = startMidi + scaleIntervals[g];
+        final majPattern = [7, 5, 4, 2, 0]; // Major scale 5-4-3-2-1 semitones
         for (int semitoneOffset in majPattern) {
           final int midi = rootMidi + semitoneOffset;
           final String name = _midiToNoteName(midi);
@@ -206,6 +236,8 @@ class _VocalLessonPerformScreenState extends State<VocalLessonPerformScreen> wit
     final bool isL2L1 = lTitle.contains('wave') || lTitle.contains('12321');
     final bool isL2L2 = lTitle.contains('further') || lTitle.contains('123454321');
     final bool isL2L3 = lTitle.contains('jumps') || lTitle.contains('15151');
+    final bool isL2L4 = lTitle.contains('ascent') || lTitle.contains('12345');
+    final bool isL2L5 = lTitle.contains('descent') || lTitle.contains('54321');
 
     // Lead-in rest (beat 0): play full root chord
     playMap[0] = chordIntervals.map((i) => _midiToNoteName(startMidi + i)).toList();
@@ -236,8 +268,8 @@ class _VocalLessonPerformScreenState extends State<VocalLessonPerformScreen> wit
         final int nextRoot = startMidi + scaleIntervals[g + 1];
         playMap[chordBeat] = chordIntervals.map((i) => _midiToNoteName(nextRoot + i)).toList();
       }
-    } else if (isL2L3) {
-      // For L2L3: each group = 5 notes (10 half-beats) + 3 gaps (6 half-beats) = 16 half-beats
+    } else if (isL2L3 || isL2L4 || isL2L5) {
+      // For L2L3, L2L4, L2L5: each group = 5 notes (10 half-beats) + 3 gaps (6 half-beats) = 16 half-beats
       // We have 5 groups (g=0 to 4).
       // Chord plays on the 2nd gap beat of each group EXCEPT the last.
       for (int g = 0; g < 4; g++) { 
@@ -1114,7 +1146,7 @@ class VocalGraphPainter extends CustomPainter {
 
         // Text above the note
         final String lTitle = lessonTitle?.toLowerCase() ?? '';
-        final bool isL2 = lTitle.contains('wave') || lTitle.contains('12321') || lTitle.contains('further') || lTitle.contains('123454321') || lTitle.contains('jumps') || lTitle.contains('15151');
+        final bool isL2 = lTitle.contains('wave') || lTitle.contains('12321') || lTitle.contains('further') || lTitle.contains('123454321') || lTitle.contains('jumps') || lTitle.contains('15151') || lTitle.contains('ascent') || lTitle.contains('12345') || lTitle.contains('descent') || lTitle.contains('54321');
         final String lyricText = isL2 ? 'Mmm...' : 'La...';
 
         textPainter.text = TextSpan(
