@@ -222,23 +222,24 @@ class Command(BaseCommand):
             else:
                 self.stdout.write(self.style.SUCCESS(f'Created lesson: {lesson.title}'))
 
-        # Create Lesson 1 for Level 5: Singing on "mum"
-        lesson5_1, created = Lesson.objects.get_or_create(
-            module=module5,
+        # Create Lesson 1 for Level 4: Singing on "mum"
+        lesson4_1, created = Lesson.objects.get_or_create(
+            module=module4,
             order=1,
             defaults={'title': "Singing on 'mum'", 'lesson_type': 'practice'}
         )
-
         if not created:
-            lesson5_1.title = "Singing on 'mum'"
-            lesson5_1.save()
-            deleted_count = lesson5_1.sequences.all().delete()[0]
-            self.stdout.write(f'Cleared {deleted_count} old sequence(s) from Level 5 Lesson 1')
+            lesson4_1.title = "Singing on 'mum'"
+            lesson4_1.save()
+            deleted_count = lesson4_1.sequences.all().delete()[0]
+            self.stdout.write(f'Cleared {deleted_count} old sequence(s) from Level 4 Lesson 1')
         else:
-            self.stdout.write(self.style.SUCCESS(f'Created lesson: {lesson5_1.title}'))
+            self.stdout.write(self.style.SUCCESS(f'Created lesson: {lesson4_1.title}'))
 
-        # Clean up old Level 2 Lesson 1 if it exists (moved to Level 5)
+        # Clean up old locations if it exists
+        Lesson.objects.filter(module=module1, order=1, title="Singing on 'mum'").delete()
         Lesson.objects.filter(module=module2, order=1, title="Singing on 'mum'").delete()
+        Lesson.objects.filter(module=module5, order=1, title="Singing on 'mum'").delete()
 
         self.stdout.write(self.style.SUCCESS(
             "\nSuccessfully seeded vocal lessons.\n"
