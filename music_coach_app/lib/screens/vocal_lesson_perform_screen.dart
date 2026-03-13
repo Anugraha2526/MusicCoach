@@ -93,13 +93,43 @@ class _VocalLessonPerformScreenState extends State<VocalLessonPerformScreen> wit
     final bool isL2L1 = lTitle.contains('wave') || lTitle.contains('12321');
     final bool isL2L2 = lTitle.contains('further') || lTitle.contains('123454321');
     final bool isL2L3 = lTitle.contains('jumps') || lTitle.contains('15151');
-    final bool isL2L4 = lTitle.contains('ascent') || lTitle.contains('12345');
-    final bool isL2L5 = lTitle.contains('descent') || lTitle.contains('54321');
+    final bool isL2L4 = lTitle.contains('ascent (12345)') || lTitle.contains('(12345)');
+    final bool isL2L5 = lTitle.contains('descent (54321)') || lTitle.contains('(54321)');
+    final bool isMumLesson = lTitle.contains('mum');
 
     // 4 beats of lead-in rest (8 half-beats since we need 0.5 resolution)
-    allNotes.addAll(List.filled(8, '-'));
+    // Exception: mum lesson uses 2-beat lead-in (4 half-beats)
+    if (isMumLesson) {
+      allNotes.addAll(List.filled(4, '-'));
+    } else {
+      allNotes.addAll(List.filled(8, '-'));
+    }
 
-    if (isL2L1) {
+    if (isMumLesson) {
+      // Level 5 Lesson 1: "Singing on mum"
+      // Pattern per line: 1-2-3-4-5-4-3-2-1 using major scale degrees
+      // 11 lines shifting by half-steps: up 5 then back down
+      const mumScaleIntervals = [0, 2, 4, 5, 7]; // Major scale degrees 1-5
+      const mumPattern = [0, 1, 2, 3, 4, 3, 2, 1, 0]; // 1-2-3-4-5-4-3-2-1
+      const lineOffsets = [0, 1, 2, 3, 4, 5, 4, 3, 2, 1, 0]; // 11 lines
+
+      for (int line = 0; line < lineOffsets.length; line++) {
+        final int root = startMidi + lineOffsets[line];
+        for (int p = 0; p < mumPattern.length; p++) {
+          final int midi = root + mumScaleIntervals[mumPattern[p]];
+          final String name = _midiToNoteName(midi);
+          if (p < mumPattern.length - 1) {
+            // Quarter note = 2 half-beats
+            allNotes.addAll([name, '=']);
+          } else {
+            // Last note — half note = 4 half-beats
+            allNotes.addAll([name, '=', '=', '=']);
+          }
+        }
+        // 2-beat rest gap = 4 half-beats
+        allNotes.addAll(['-', '-', '-', '-']);
+      }
+    } else if (isL2L1) {
       // Level 2 Lesson 1: 12321 wave pattern stepping up the scale
       // Groups: start at degree 0,1,2,3... up to 7 (octave jump)
       // Each group uses a MAJOR 12321 shape relative to the root note
@@ -236,17 +266,34 @@ class _VocalLessonPerformScreenState extends State<VocalLessonPerformScreen> wit
     final bool isL2L1 = lTitle.contains('wave') || lTitle.contains('12321');
     final bool isL2L2 = lTitle.contains('further') || lTitle.contains('123454321');
     final bool isL2L3 = lTitle.contains('jumps') || lTitle.contains('15151');
-    final bool isL2L4 = lTitle.contains('ascent') || lTitle.contains('12345');
-    final bool isL2L5 = lTitle.contains('descent') || lTitle.contains('54321');
+    final bool isL2L4 = lTitle.contains('ascent (12345)') || lTitle.contains('(12345)');
+    final bool isL2L5 = lTitle.contains('descent (54321)') || lTitle.contains('(54321)');
+    final bool isMumLesson = lTitle.contains('mum');
 
-    // Lead-in rest (beat 0): play full root chord
-    playMap[0] = chordIntervals.map((i) => _midiToNoteName(startMidi + i)).toList();
+    if (isMumLesson) {
+      // Mum lesson: chord intervals [0, 5, 9] (scale degrees 1, 4, 6)
+      const mumChordIntervals = [0, 5, 9];
+      const lineOffsets = [0, 1, 2, 3, 4, 5, 4, 3, 2, 1, 0];
 
-    // On the 3rd beat of the 4-beat lead-in (half-beat index 4)
-    // Play the starting root note so the user can hear it before singing
-    playMap[4] = [_midiToNoteName(startMidi)];
+      // Lead-in chord (beat 0)
+      playMap[0] = mumChordIntervals.map((i) => _midiToNoteName(startMidi + lineOffsets[0] + i)).toList();
 
-    if (isL2L1) {
+      // Each line = 8 quarter notes (16 half-beats) + 1 half note (4 half-beats) + 2-beat rest (4 half-beats) = 24 half-beats
+      for (int line = 0; line < lineOffsets.length; line++) {
+        final int lineStart = 4 + line * 24; // 4 half-beat lead-in + line * 24
+        final int restStart = lineStart + 20; // 8 quarters (16) + half note (4) = 20 half-beats into the line
+        final int nextOffset = line < lineOffsets.length - 1 ? lineOffsets[line + 1] : lineOffsets[line];
+        playMap[restStart] = mumChordIntervals.map((i) => _midiToNoteName(startMidi + nextOffset + i)).toList();
+      }
+    } else {
+      // Lead-in rest (beat 0): play full root chord
+      playMap[0] = chordIntervals.map((i) => _midiToNoteName(startMidi + i)).toList();
+
+      // On the 3rd beat of the 4-beat lead-in (half-beat index 4)
+      // Play the starting root note so the user can hear it before singing
+      playMap[4] = [_midiToNoteName(startMidi)];
+
+      if (isL2L1) {
       // For L2L1: each group = 5 quarter notes (10 half-beats) + 3 gaps (6 half-beats) = 16 half-beats
       // Note: we have 8 groups (g=0 to 7).
       // Chord plays on the 2nd gap beat of each group EXCEPT the last.
@@ -277,6 +324,7 @@ class _VocalLessonPerformScreenState extends State<VocalLessonPerformScreen> wit
         final int chordBeat = groupStart + 12; // 2nd gap beat
         final int nextRoot = startMidi + scaleIntervals[g + 1];
         playMap[chordBeat] = chordIntervals.map((i) => _midiToNoteName(nextRoot + i)).toList();
+      }
       }
     }
 
@@ -1149,10 +1197,13 @@ class VocalGraphPainter extends CustomPainter {
 
         // Text above the note
         final String lTitle = lessonTitle?.toLowerCase() ?? '';
-        final bool isL2 = lTitle.contains('wave') || lTitle.contains('12321') || lTitle.contains('further') || lTitle.contains('123454321') || lTitle.contains('jumps') || lTitle.contains('15151') || lTitle.contains('ascent') || lTitle.contains('12345') || lTitle.contains('descent') || lTitle.contains('54321');
+        final bool isMumLesson = lTitle.contains('mum');
+        final bool isL2 = lTitle.contains('wave') || lTitle.contains('12321') || lTitle.contains('further') || lTitle.contains('123454321') || lTitle.contains('jumps') || lTitle.contains('15151') || lTitle.contains('ascent (12345)') || lTitle.contains('(12345)') || lTitle.contains('descent (54321)') || lTitle.contains('(54321)');
         
         String lyricText = 'La...';
-        if (isL2) {
+        if (isMumLesson) {
+            lyricText = 'mum...';
+        } else if (isL2) {
             lyricText = targetLevel == 3 ? 'Aa...' : 'Mmm...';
         }
 
