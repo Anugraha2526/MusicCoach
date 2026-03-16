@@ -192,8 +192,12 @@ class Command(BaseCommand):
         )
         module4, _ = Module.objects.get_or_create(
             order=4, instrument=vocals_instrument,
-            defaults={'title': 'Level 4', 'description': 'Advanced Vocal Exercises'}
+            defaults={'title': 'Level 4: Silent night', 'description': 'Advanced Vocal Exercises'}
         )
+        # Update title if module already exists with old name
+        if module4.title != 'Level 4: Silent night':
+            module4.title = 'Level 4: Silent night'
+            module4.save()
         module5, _ = Module.objects.get_or_create(
             order=5, instrument=vocals_instrument,
             defaults={'title': 'Level 5', 'description': 'Vocal Mastery'}
@@ -235,6 +239,129 @@ class Command(BaseCommand):
             self.stdout.write(f'Cleared {deleted_count} old sequence(s) from Level 4 Lesson 1')
         else:
             self.stdout.write(self.style.SUCCESS(f'Created lesson: {lesson4_1.title}'))
+
+        # Create Lesson 2 for Level 4: Soprano Part - Learn it solo (Silent Night)
+        lesson4_2, created = Lesson.objects.get_or_create(
+            module=module4,
+            order=2,
+            defaults={'title': "Soprano Part: Learn it solo", 'lesson_type': 'practice'}
+        )
+        if not created:
+            lesson4_2.title = "Soprano Part: Learn it solo"
+            lesson4_2.save()
+            deleted_count = lesson4_2.sequences.all().delete()[0]
+            self.stdout.write(f'Cleared {deleted_count} old sequence(s) from Level 4 Lesson 2')
+        else:
+            self.stdout.write(self.style.SUCCESS(f'Created lesson: {lesson4_2.title}'))
+
+        # Silent Night soprano melody in half-beat resolution (3/4 time)
+        # Each beat = 2 half-beats, each bar = 6 half-beats, 26 bars
+        # '-' = rest, '=' = hold/sustain previous note
+        silent_night_notes = [
+            # Bars 1-2: Lead-in rests (2 bars × 6 half-beats)
+            '-', '-', '-', '-', '-', '-',
+            '-', '-', '-', '-', '-', '-',
+            # Bar 3: G3 dotted, A3 passing, G3 quarter ("Si-lent")
+            'G3', '=', '=', 'A3', 'G3', '=',
+            # Bar 4: E3 held 3 beats ("night")
+            'E3', '=', '=', '=', '=', '=',
+            # Bar 5: G3 dotted, A3 passing, G3 quarter ("Ho-ly")
+            'G3', '=', '=', 'A3', 'G3', '=',
+            # Bar 6: E3 held 3 beats ("night")
+            'E3', '=', '=', '=', '=', '=',
+            # Bar 7: D4 held 2 beats, D4 restrike ("All is")
+            'D4', '=', '=', '=', 'D4', '=',
+            # Bar 8: B3 held 3 beats ("calm")
+            'B3', '=', '=', '=', '=', '=',
+            # Bar 9: C4 held 2 beats, C4 new ("All is")
+            'C4', '=', '=', '=', 'C4', '=',
+            # Bar 10: G3 held 3 beats ("bright")
+            'G3', '=', '=', '=', '=', '=',
+            # Bar 11: A3 held 3 beats ("Round yon")
+            'A3', '=', '=', '=', '=', '=',
+            # Bar 12: C4 dotted, B3 passing, A3 quarter ("vir-gin")
+            'C4', '=', '=', 'B3', 'A3', '=',
+            # Bar 13: G3 dotted, A3 passing, G3 quarter ("mo-ther and")
+            'G3', '=', '=', 'A3', 'G3', '=',
+            # Bar 14: E3 held 3 beats ("child")
+            'E3', '=', '=', '=', '=', '=',
+            # Bar 15: A3 held 3 beats ("Ho-ly")
+            'A3', '=', '=', '=', 'A3', '=',
+            # Bar 16: C4 dotted, B3 passing, A3 quarter ("in-fant so")
+            'C4', '=', '=', 'B3', 'A3', '=',
+            # Bar 17: G3 dotted, A3 passing, G3 quarter ("ten-der and")
+            'G3', '=', '=', 'A3', 'G3', '=',
+            # Bar 18: E3 held 3 beats ("mild")
+            'E3', '=', '=', '=', '=', '=',
+            # Bar 19: D4 held 2 beats, D4 restrike ("Sleep in")
+            'D4', '=', '=', '=', 'D4', '=',
+            # Bar 20: F4 dotted, D4 passing, B3 quarter ("hea-ven-ly")
+            'F4', '=', '=', 'D4', 'B3', '=',
+            # Bar 21: C4 held 3 beats ("peace")
+            'C4', '=', '=', '=', '=', '=',
+            # Bar 22: E4 held 3 beats
+            'E4', '=', '=', '=', '=', '=',
+            # Bar 23: C4 quarter, G3 quarter, E3 quarter ("Sleep in")
+            'C4', '=', 'G3', '=', 'E3', '=',
+            # Bar 24: G3 dotted, E3 passing, D3 quarter ("hea-ven-ly")
+            'G3', '=', '=', 'E3', 'D3', '=',
+            # Bar 25: C3 held 3 beats ("peace")
+            'C3', '=', '=', '=', '=', '=',
+            # Bar 26: C3 continued from bar 25
+            '=', '=', '=', '=', '=', '=',
+        ]
+
+        silent_night_lyrics = [
+            # Bars 1-2: Lead-in rests (2 bars × 6 half-beats)
+            '', '', '', '', '', '',
+            '', '', '', '', '', '',
+            # Bars 3-4: G3 dotted, A3 passing, G3 quarter ("Si-lent") + E3 held 3 beats ("night")
+            'Silent night', 'Silent night', 'Silent night', 'Silent night', 'Silent night', 'Silent night',
+            'Silent night', 'Silent night', 'Silent night', 'Silent night', 'Silent night', 'Silent night',
+            # Bars 5-6: G3 dotted, A3 passing, G3 quarter ("Ho-ly") + E3 held 3 beats ("night")
+            'Holy night', 'Holy night', 'Holy night', 'Holy night', 'Holy night', 'Holy night',
+            'Holy night', 'Holy night', 'Holy night', 'Holy night', 'Holy night', 'Holy night',
+            # Bars 7-8: D4 held 2 beats, D4 restrike ("All is") + B3 held 3 beats ("calm")
+            'All is calm', 'All is calm', 'All is calm', 'All is calm', 'All is calm', 'All is calm',
+            'All is calm', 'All is calm', 'All is calm', 'All is calm', 'All is calm', 'All is calm',
+            # Bars 9-10: C4 held 2 beats, D4 new ("All is") + G3 held 3 beats ("bright")
+            'All is bright', 'All is bright', 'All is bright', 'All is bright', 'All is bright', 'All is bright',
+            'All is bright', 'All is bright', 'All is bright', 'All is bright', 'All is bright', 'All is bright',
+            # Bars 11-12: A3 held 3 beats ("Round yon") + C4 dotted, B3 passing, A3 quarter ("vir-gin")
+            'Round yon virgin', 'Round yon virgin', 'Round yon virgin', 'Round yon virgin', 'Round yon virgin', 'Round yon virgin',
+            'Round yon virgin', 'Round yon virgin', 'Round yon virgin', 'Round yon virgin', 'Round yon virgin', 'Round yon virgin',
+            # Bars 13-14: G3 dotted, A3 passing, G3 quarter ("mo-ther and") + E3 held 3 beats ("child")
+            'mother and child', 'mother and child', 'mother and child', 'mother and child', 'mother and child', 'mother and child',
+            'mother and child', 'mother and child', 'mother and child', 'mother and child', 'mother and child', 'mother and child',
+            # Bars 15-16: A3 held 3 beats ("Ho-ly") + C4 dotted, B3 passing, A3 quarter ("in-fant so")
+            'Holy infant so', 'Holy infant so', 'Holy infant so', 'Holy infant so', 'Holy infant so', 'Holy infant so',
+            'Holy infant so', 'Holy infant so', 'Holy infant so', 'Holy infant so', 'Holy infant so', 'Holy infant so',
+            # Bars 17-18: G3 dotted, A3 passing, G3 quarter ("ten-der and") + E3 held 3 beats ("mild")
+            'tender and mild', 'tender and mild', 'tender and mild', 'tender and mild', 'tender and mild', 'tender and mild',
+            'tender and mild', 'tender and mild', 'tender and mild', 'tender and mild', 'tender and mild', 'tender and mild',
+            # Bars 19-22: D4 held 2 beats, D4 restrike ("Sleep in") + F4 dotted, D4 passing, B3 quarter ("hea-ven-ly") + C4 held 3 beats ("peace") + E4 held 3 beats
+            'Sleep in heavenly peace', 'Sleep in heavenly peace', 'Sleep in heavenly peace', 'Sleep in heavenly peace', 'Sleep in heavenly peace', 'Sleep in heavenly peace',
+            'Sleep in heavenly peace', 'Sleep in heavenly peace', 'Sleep in heavenly peace', 'Sleep in heavenly peace', 'Sleep in heavenly peace', 'Sleep in heavenly peace',
+            'Sleep in heavenly peace', 'Sleep in heavenly peace', 'Sleep in heavenly peace', 'Sleep in heavenly peace', 'Sleep in heavenly peace', 'Sleep in heavenly peace',
+            'Sleep in heavenly peace', 'Sleep in heavenly peace', 'Sleep in heavenly peace', 'Sleep in heavenly peace', 'Sleep in heavenly peace', 'Sleep in heavenly peace',
+            # Bars 23-26: C4 quarter, G3 quarter, E3 quarter ("Sleep in") + G3 dotted, E3 passing, D3 quarter ("hea-ven-ly") + C3 held 3 beats ("peace") + C3 continued from bar 25
+            'Sleep in heavenly peace', 'Sleep in heavenly peace', 'Sleep in heavenly peace', 'Sleep in heavenly peace', 'Sleep in heavenly peace', 'Sleep in heavenly peace',
+            'Sleep in heavenly peace', 'Sleep in heavenly peace', 'Sleep in heavenly peace', 'Sleep in heavenly peace', 'Sleep in heavenly peace', 'Sleep in heavenly peace',
+            'Sleep in heavenly peace', 'Sleep in heavenly peace', 'Sleep in heavenly peace', 'Sleep in heavenly peace', 'Sleep in heavenly peace', 'Sleep in heavenly peace',
+            'Sleep in heavenly peace', 'Sleep in heavenly peace', 'Sleep in heavenly peace', 'Sleep in heavenly peace', 'Sleep in heavenly peace', 'Sleep in heavenly peace',
+        ]
+
+        PracticeSequence.objects.create(
+            lesson=lesson4_2,
+            order=1,
+            sequence_type='perform',
+            notes=silent_night_notes,
+            lyrics=silent_night_lyrics,
+            time_signature='3/4',
+        )
+        self.stdout.write(self.style.SUCCESS(
+            f'Created Silent Night soprano sequence ({len(silent_night_notes)} half-beats)'
+        ))
 
         # Clean up old locations if it exists
         Lesson.objects.filter(module=module1, order=1, title="Singing on 'mum'").delete()

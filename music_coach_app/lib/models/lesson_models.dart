@@ -61,6 +61,7 @@ class PracticeSequence {
   final int order;
   final String type; // 'listen', 'learn', 'identify', 'read'
   final List<String> notes; // e.g., ["C", "C", "D", "D"]
+  final List<String>? lyrics; // e.g., ["Si", "Si", "Si", "lent"]
   final String timeSignature; // e.g. "4/4"
 
   PracticeSequence({
@@ -68,6 +69,7 @@ class PracticeSequence {
     required this.order,
     this.type = 'listen',
     required this.notes,
+    this.lyrics,
     this.timeSignature = '4/4',
   });
 
@@ -77,6 +79,7 @@ class PracticeSequence {
       order: json['order'],
       type: json['sequence_type'] ?? 'listen',
       notes: List<String>.from(json['notes']),
+      lyrics: json['lyrics'] != null ? List<String>.from(json['lyrics']) : null,
       timeSignature: json['time_signature'] ?? '4/4',
     );
   }
