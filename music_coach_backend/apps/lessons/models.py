@@ -78,6 +78,7 @@ class PracticeSequence(models.Model):
     order = models.PositiveIntegerField(default=1, help_text="Part number (1, 2, 3...)")
     sequence_type = models.CharField(max_length=20, choices=SEQUENCE_TYPES, default='listen', help_text="Type of interaction")
     notes = models.JSONField(help_text="List of notes, e.g. ['C', 'D', 'E']")
+    lyrics = models.JSONField(null=True, blank=True, help_text="List of lyrics matching the length of notes, or null")
     time_signature = models.CharField(max_length=10, default="4/4", help_text="Time Signature (e.g. 4/4)")
     
     created_at = models.DateTimeField(auto_now_add=True)

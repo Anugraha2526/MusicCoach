@@ -342,7 +342,7 @@ class _VocalLessonPerformScreenState extends State<VocalLessonPerformScreen> wit
   double _songTimeMs = 0.0;
   // 145 BPM => ~414ms per quarter beat. Because we use 0.5 beat arrays,
   // each array element represents an eighth note (1/2 beat) = 207ms.
-  final double _beatDurationMs = 207.0;
+  double _beatDurationMs = 207.0;
   int _score = 0;
   int _maxPossibleScore = 0;
   bool _isFinished = false;
@@ -435,6 +435,14 @@ class _VocalLessonPerformScreenState extends State<VocalLessonPerformScreen> wit
             // Range spans from naturalMidi to naturalMidi+8 (9 lines) + up to 7 semitones
             // Center at naturalMidi + 7 (roughly the middle of the full range)
             _currentCenterMidi = naturalMidi + 7;
+          }
+
+          if (widget.lessonTitle?.toLowerCase().contains('mum') == true) {
+             _beatDurationMs = 200; // Faster
+          } else if (widget.lessonTitle?.toLowerCase().contains('soprano part') == true) {
+             _beatDurationMs = 230; // Medium speed (about 100 BPM)
+          } else {
+             _beatDurationMs = 250;
           }
         });
         
@@ -605,9 +613,13 @@ class _VocalLessonPerformScreenState extends State<VocalLessonPerformScreen> wit
     _lastPlayedBeat = -1; // Reset when starting
     
     // Play the very first beat (index 0) immediately, since the loop starts looking ahead at beat 1
-    if (_chordBeats.containsKey(0) && _audioInitialized) {
+    if (_audioInitialized) {
         Future.microtask(() {
-            for (var cn in _chordBeats[0]!) {
+            List<String> startingChord = _chordBeats[0] ?? [];
+            if (widget.lessonTitle?.toLowerCase().contains('soprano part') == true) {
+                startingChord = ['C3', 'E3', 'G3'];
+            }
+            for (var cn in startingChord) {
                final src = _noteSources[cn];
                if (src != null) _soloud.play(src, volume: 0.45);
             }
@@ -796,6 +808,7 @@ class _VocalLessonPerformScreenState extends State<VocalLessonPerformScreen> wit
                     scoredBeats: _scoredBeats,
                     lessonTitle: widget.lessonTitle,
                     targetLevel: widget.targetLevel,
+                    timeSignature: sequences.isNotEmpty ? sequences.first.timeSignature : '4/4',
                   ),
                 );
               }
@@ -821,6 +834,46 @@ class _VocalLessonPerformScreenState extends State<VocalLessonPerformScreen> wit
               ],
             ),
           ),
+
+          // Karaoke Lyrics Overlay
+          if (sequences.isNotEmpty && sequences.first.lyrics != null && sequences.first.lyrics!.isNotEmpty)
+            Positioned(
+              top: 30,
+              left: 0,
+              right: 0,
+              child: AnimatedBuilder(
+                animation: _repaintController,
+                builder: (context, child) {
+                  // Look ahead by 1.5 half-beats (approx 1 beat) so lyrics appear before the note
+                  int currentHalfBeat = ((_songTimeMs / _beatDurationMs) + 1.5).floor();
+                  String currentLyric = '';
+                  final lyricsList = sequences.first.lyrics!;
+                  
+                  if (currentHalfBeat >= 0 && currentHalfBeat < lyricsList.length) {
+                    currentLyric = lyricsList[currentHalfBeat];
+                  }
+
+                  if (currentLyric.isEmpty) return const SizedBox.shrink();
+
+                  return Center(
+                    child: Text(
+                      currentLyric,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 28,
+                        fontWeight: FontWeight.bold,
+                        fontFamily: 'Outfit',
+                        shadows: [
+                          Shadow(color: Colors.black54, blurRadius: 4, offset: Offset(2, 2)),
+                          Shadow(color: Color(0xFFE93B81), blurRadius: 10, offset: Offset(0, 0)),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
           
           // Play button overlay (only when not playing)
           if (!_isPlaying && !_isFinished)
@@ -1024,6 +1077,7 @@ class VocalGraphPainter extends CustomPainter {
   final Set<int> scoredBeats;
   final String? lessonTitle;
   final int? targetLevel;
+  final String timeSignature;
 
   VocalGraphPainter({
     required this.centerMidi,
@@ -1037,6 +1091,7 @@ class VocalGraphPainter extends CustomPainter {
     required this.scoredBeats,
     this.lessonTitle,
     this.targetLevel,
+    this.timeSignature = '4/4',
   });
 
   String _midiToName(int midi) {
@@ -1091,17 +1146,26 @@ class VocalGraphPainter extends CustomPainter {
     startBeat = math.max(0, startBeat);
     int endBeat = ((size.width - scrollOffsetX) / beatWidth).ceil();
     
-    // A full measure is 4 beats = 8 half-beats (array elements)
-    int startBar = startBeat ~/ 8;
-    int endBar = endBeat ~/ 8;
+    int beatsPerBar = 4;
+    if (timeSignature.startsWith('3/')) {
+        beatsPerBar = 3;
+    } else if (timeSignature.startsWith('2/')) {
+        beatsPerBar = 2;
+    } else if (timeSignature.startsWith('6/')) {
+        beatsPerBar = 6;
+    }
+    int halfBeatsPerBar = beatsPerBar * 2;
+    
+    int startBar = startBeat ~/ halfBeatsPerBar;
+    int endBar = endBeat ~/ halfBeatsPerBar;
     for (int bar = startBar; bar <= endBar; bar++) {
         // x position of the start of the bar
-        final double x = scrollOffsetX + (bar * 8 * beatWidth);
+        final double x = scrollOffsetX + (bar * halfBeatsPerBar * beatWidth);
         final Paint bgPaint = (bar % 2 == 0) ? evenBarPaint : oddBarPaint;
-        canvas.drawRect(Rect.fromLTWH(x, 0, beatWidth * 8, size.height), bgPaint);
+        canvas.drawRect(Rect.fromLTWH(x, 0, beatWidth * halfBeatsPerBar, size.height), bgPaint);
         
-        // Draw 4 beat lines per bar (every 2 half-beats)
-        for(int b = 0; b < 4; b++) {
+        // Draw beat lines per bar (every 2 half-beats)
+        for(int b = 0; b < beatsPerBar; b++) {
             final double bx = x + b * 2 * beatWidth;
             canvas.drawLine(Offset(bx, 0), Offset(bx, size.height), linePaint);
         }
@@ -1195,35 +1259,8 @@ class VocalGraphPainter extends CustomPainter {
         textPainter.layout();
         textPainter.paint(canvas, Offset(noteX + 12, y - textPainter.height / 2));
 
-        // Text above the note
-        final String lTitle = lessonTitle?.toLowerCase() ?? '';
-        final bool isMumLesson = lTitle.contains('mum');
-        final bool isL2 = lTitle.contains('wave') || lTitle.contains('12321') || lTitle.contains('further') || lTitle.contains('123454321') || lTitle.contains('jumps') || lTitle.contains('15151') || lTitle.contains('ascent (12345)') || lTitle.contains('(12345)') || lTitle.contains('descent (54321)') || lTitle.contains('(54321)');
-        
-        String lyricText = 'La...';
-        if (isMumLesson) {
-            lyricText = 'mum...';
-        } else if (isL2) {
-            lyricText = targetLevel == 3 ? 'Aa...' : 'Mmm...';
-        }
-
-        textPainter.text = TextSpan(
-          text: lyricText,
-          style: TextStyle(
-            color: isActive 
-                ? const Color(0xFFFF9ECA) // Bright pastel pink when active
-                : const Color(0xFFE93B81).withOpacity(0.6), // Dimmed theme pink when inactive/passed
-            fontSize: isActive ? 16 : 14, 
-            fontStyle: FontStyle.italic,
-            fontWeight: FontWeight.w800,
-            shadows: isActive ? [
-              Shadow(color: const Color(0xFFE93B81).withOpacity(0.8), blurRadius: 10),
-            ] : null,
-          ),
-        );
-        textPainter.layout();
         // Position it just above the note block (note top is y-12)
-        textPainter.paint(canvas, Offset(noteX + 4, y - 18 - textPainter.height));
+        // [REMOVED LA TEXT PER USER REQUEST]
     }
 
     // ---- 4. PLAYHEAD LINE (Moved to audio trigger 1 full beat ahead) ----

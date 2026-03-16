@@ -329,7 +329,10 @@ class _VocalLessonScreenState extends State<VocalLessonScreen>
                             }
                             
                             // Clean up title by removing "Perform " or "Perform: "
-                            final cleanedTitle = rawTitle.replaceAll(RegExp(r'^Perform[:\s]+', caseSensitive: false), '').trim();
+                            String cleanedTitle = rawTitle.replaceAll(RegExp(r'^Perform[:\s]+', caseSensitive: false), '').trim();
+                            if (level == 4) {
+                                cleanedTitle = 'Silent night';
+                            }
                             if (cleanedTitle.isNotEmpty) {
                                headerText = 'LEVEL $level: ${cleanedTitle.toUpperCase()}';
                             }
@@ -428,7 +431,7 @@ class _VocalLessonScreenState extends State<VocalLessonScreen>
                         final position = _getLessonPosition(index, screenWidth, contentHeight);
                         
                         return Positioned(
-                          left: position.dx - 80, // Adjusted for width 160
+                          left: position.dx - 100, // Adjusted for width 200
                           top: position.dy - 60, // Moved up to accommodate jump text
                           child: Stack(
                             clipBehavior: Clip.none,
@@ -566,7 +569,7 @@ class _AnimatedLessonButtonState extends State<_AnimatedLessonButton> with Singl
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 180, 
+      width: 200, 
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.center,
@@ -628,11 +631,11 @@ class _AnimatedLessonButtonState extends State<_AnimatedLessonButton> with Singl
                   Text(
                     widget.lessonTitle,
                     textAlign: TextAlign.center,
-                    maxLines: 2,
+                    maxLines: 3,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                       color: Colors.white,
-                      fontSize: 16, 
+                      fontSize: 13, 
                       fontWeight: FontWeight.bold,
                     ),
                   ),
