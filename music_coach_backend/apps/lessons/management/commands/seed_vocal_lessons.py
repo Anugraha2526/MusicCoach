@@ -503,8 +503,64 @@ class Command(BaseCommand):
             f'Created Silent Night tenor sequence ({len(silent_night_tenor_notes)} half-beats)'
         ))
 
+        # Create Lesson 5 for Level 4: Bass Part - Learn it solo (Silent Night)
+        lesson4_5, created = Lesson.objects.get_or_create(
+            module=module4,
+            order=5,
+            defaults={'title': "Bass Part: Learn it solo", 'lesson_type': 'practice'}
+        )
+        if not created:
+            lesson4_5.title = "Bass Part: Learn it solo"
+            lesson4_5.save()
+            deleted_count = lesson4_5.sequences.all().delete()[0]
+            self.stdout.write(f'Cleared {deleted_count} old sequence(s) from Level 4 Lesson 5')
+        else:
+            self.stdout.write(self.style.SUCCESS(f'Created lesson: {lesson4_5.title}'))
+
+        silent_night_bass_notes = [
+            '-', '-', '-', '-', '-', '-',
+            '-', '-', '-', '-', '-', '-',
+            'C3', '=', '=', '=', 'C3', '=',
+            'C3', '=', '=', '=', '=', '=',
+            'C3', '=', '=', 'C3', 'C3', '=',
+            'C3', '=', '=', '=', '=', '=',
+            'G3', '=', '=', '=', 'G3', '=',
+            'G3', '=', '=', '=', '=', '=',
+            'C3', '=', '=', '=', 'C3', '=',
+            'C3', '=', '=', '=', '=', '=',
+            'F3', '=', '=', '=', 'F3', '=',
+            'F3', '=', '=', 'F3', 'F3', '=',
+            'C3', '=', '=', 'C3', 'C3', '=',
+            'C3', '=', '=', '=', '=', '=',
+            'A3', '=', '=', '=', 'C4', '=',
+            'A3', '=', '=', 'B3', 'C4', '=',
+            'C4', '=', '=', 'C4', 'C4', '=',
+            'G3', '=', '=', '=', '=', '=',
+            'G3', '=', '=', '=', 'G3', '=',
+            'G3', '=', '=', 'G3', 'G3', '=',
+            'C3', '=', '=', '=', '=', '=',
+            'C3', '=', '=', '=', '=', '=',
+            'G3', '=', '=', '=', 'G3', '=',
+            'G2', '=', '=', 'G2', 'G2', '=',
+            'C3', '=', '=', '=', '=', '=',
+            '=', '=', '=', '=', '=', '=',
+        ]
+
+        PracticeSequence.objects.create(
+            lesson=lesson4_5,
+            order=1,
+            sequence_type='perform',
+            notes=silent_night_bass_notes,
+            lyrics=silent_night_lyrics,
+            time_signature='3/4',
+        )
+        self.stdout.write(self.style.SUCCESS(
+            f'Created Silent Night bass sequence ({len(silent_night_bass_notes)} half-beats)'
+        ))
+
         self.stdout.write(self.style.SUCCESS(
             "\nSuccessfully seeded vocal lessons.\n"
             "Note: sequences are generated dynamically on the frontend "
             "based on each user's natural pitch."
         ))
+
