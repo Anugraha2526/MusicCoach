@@ -1259,8 +1259,25 @@ class VocalGraphPainter extends CustomPainter {
         textPainter.layout();
         textPainter.paint(canvas, Offset(noteX + 12, y - textPainter.height / 2));
 
-        // Position it just above the note block (note top is y-12)
-        // [REMOVED LA TEXT PER USER REQUEST]
+        // Position syllable just above the note block (note top is y-12)
+        String syllable = '';
+        if (targetLevel == 1) syllable = 'La';
+        else if (targetLevel == 2) syllable = 'Mm';
+        else if (targetLevel == 3) syllable = 'Oo';
+        else if (targetLevel == 4 && lessonTitle != null && lessonTitle!.toLowerCase().contains('mum')) syllable = 'mum';
+
+        if (syllable.isNotEmpty) {
+            textPainter.text = TextSpan(
+              text: syllable,
+              style: TextStyle(
+                color: isActive ? Colors.white : Colors.white.withOpacity(0.8),
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+              ),
+            );
+            textPainter.layout();
+            textPainter.paint(canvas, Offset(noteX + 4, y - 30));
+        }
     }
 
     // ---- 4. PLAYHEAD LINE (Moved to audio trigger 1 full beat ahead) ----

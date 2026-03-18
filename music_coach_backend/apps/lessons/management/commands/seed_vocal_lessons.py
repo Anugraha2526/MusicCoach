@@ -31,18 +31,18 @@ class Command(BaseCommand):
         )
 
         # Create Module 1 (Vocal Level 1)
-        module1, _ = Module.objects.get_or_create(
+        module1, _ = Module.objects.update_or_create(
             order=1,
             instrument=vocals_instrument,
-            defaults={'title': 'Level 1', 'description': 'Introduction to Vocals'}
+            defaults={'title': "Level 1: Practicing La's", 'description': 'Introduction to Vocals'}
         )
         self.stdout.write(f'Ensured Level 1 module: {module1.title}')
 
         # Create Module 2 (Vocal Level 2)
-        module2, _ = Module.objects.get_or_create(
+        module2, _ = Module.objects.update_or_create(
             order=2,
             instrument=vocals_instrument,
-            defaults={'title': 'Level 2', 'description': 'Vocal Warmups'}
+            defaults={'title': "Level 2: Practicing Mm's", 'description': 'Vocal Warmups'}
         )
         self.stdout.write(f'Ensured Level 2 module: {module2.title}')
 
@@ -186,11 +186,11 @@ class Command(BaseCommand):
         else:
             self.stdout.write(self.style.SUCCESS(f'Created lesson: {lesson1_5.title}'))
         # Create Modules 3, 4, 5
-        module3, _ = Module.objects.get_or_create(
+        module3, _ = Module.objects.update_or_create(
             order=3, instrument=vocals_instrument,
-            defaults={'title': 'Level 3', 'description': 'Vocal Exercises'}
+            defaults={'title': "Level 3: Practicing Oh's", 'description': 'Vocal Exercises'}
         )
-        module4, _ = Module.objects.get_or_create(
+        module4, _ = Module.objects.update_or_create(
             order=4, instrument=vocals_instrument,
             defaults={'title': 'Level 4: Silent night', 'description': 'Advanced Vocal Exercises'}
         )
@@ -198,7 +198,7 @@ class Command(BaseCommand):
         if module4.title != 'Level 4: Silent night':
             module4.title = 'Level 4: Silent night'
             module4.save()
-        module5, _ = Module.objects.get_or_create(
+        module5, _ = Module.objects.update_or_create(
             order=5, instrument=vocals_instrument,
             defaults={'title': 'Level 5', 'description': 'Vocal Mastery'}
         )
@@ -367,6 +367,86 @@ class Command(BaseCommand):
         Lesson.objects.filter(module=module1, order=1, title="Singing on 'mum'").delete()
         Lesson.objects.filter(module=module2, order=1, title="Singing on 'mum'").delete()
         Lesson.objects.filter(module=module5, order=1, title="Singing on 'mum'").delete()
+
+        # Create Lesson 3 for Level 4: Alto Part - Learn it solo (Silent Night)
+        lesson4_3, created = Lesson.objects.get_or_create(
+            module=module4,
+            order=3,
+            defaults={'title': "Alto Part: Learn it solo", 'lesson_type': 'practice'}
+        )
+        if not created:
+            lesson4_3.title = "Alto Part: Learn it solo"
+            lesson4_3.save()
+            deleted_count = lesson4_3.sequences.all().delete()[0]
+            self.stdout.write(f'Cleared {deleted_count} old sequence(s) from Level 4 Lesson 3')
+        else:
+            self.stdout.write(self.style.SUCCESS(f'Created lesson: {lesson4_3.title}'))
+
+        silent_night_alto_notes = [
+            # Bars 1-2: Lead-in rests (2 bars × 6 half-beats)
+            '-', '-', '-', '-', '-', '-',
+            '-', '-', '-', '-', '-', '-',
+            # Bar 3: E3 dotted, F3 passing, E3 quarter
+            'E3', '=', '=', 'F3', 'E3', '=',
+            # Bar 4: C3 held 3 beats
+            'C3', '=', '=', '=', '=', '=',
+            # Bar 5: E3 dotted, F3 passing, E3 quarter
+            'E3', '=', '=', 'F3', 'E3', '=',
+            # Bar 6: C3 held 3 beats
+            'C3', '=', '=', '=', '=', '=',
+            # Bar 7: B3 held 2 beats, B3 restrike
+            'F3', '=', '=', '=', 'F3', '=',
+            # Bar 8: G3 held 3 beats
+            'F3', '=', '=', '=', '=', '=',
+            # Bar 9: G3 held 2 beats, G3 new (Sop is C4 C4 G3, Alto can sing G3 G3 E3)
+            'E3', '=', '=', '=', 'E3', '=',
+            # Bar 10: E3 held 3 beats
+            'E3', '=', '=', '=', '=', '=',
+            # Bar 11: F3 held 3 beats
+            'F3', '=', '=', '=', 'F3', '=',
+            # Bar 12: A3 dotted, G3 passing, F3 quarter
+            'A3', '=', '=', 'G3', 'F3', '=',
+            # Bar 13: E3 dotted, F3 passing, E3 quarter
+            'E3', '=', '=', 'F3', 'E3', '=',
+            # Bar 14: C3 held 3 beats
+            'C3', '=', '=', '=', '=', '=',
+            # Bar 15: F3 held 3 beats
+            'C3', '=', '=', '=', 'F3', '=',
+            # Bar 16: A3 dotted, G3 passing, F3 quarter
+            'A3', '=', '=', 'G3', 'F3', '=',
+            # Bar 17: E3 dotted, F3 passing, E3 quarter
+            'E3', '=', '=', 'F3', 'E3', '=',
+            # Bar 18: C3 held 3 beats
+            'C3', '=', '=', '=', '=', '=',
+            # Bar 19: B3 held 2 beats, B3 restrike
+            'F3', '=', '=', '=', 'F3', '=',
+            # Bar 20: D4 dotted, B3 passing, G3 quarter
+            'F3', '=', '=', 'F3', 'F3', '=',
+            # Bar 21: G3 held 3 beats
+            'E3', '=', '=', '=', '=', '=',
+            # Bar 22: C4 held 3 beats (Sop is E4)
+            'G3', '=', '=', '=', '=', '=',
+            # Bar 23: G3 quarter, E3 quarter, C3 quarter
+            'E3', '=', '=', '=', 'C3', '=',
+            # Bar 24: E3 dotted, C3 passing, B2 quarter
+            'B2', '=', '=', 'B2', 'B2', '=',
+            # Bar 25: C3 held 3 beats
+            'C3', '=', '=', '=', '=', '=',
+            # Bar 26: C3 continued from bar 25
+            '=', '=', '=', '=', '=', '=',
+        ]
+
+        PracticeSequence.objects.create(
+            lesson=lesson4_3,
+            order=1,
+            sequence_type='perform',
+            notes=silent_night_alto_notes,
+            lyrics=silent_night_lyrics,
+            time_signature='3/4',
+        )
+        self.stdout.write(self.style.SUCCESS(
+            f'Created Silent Night alto sequence ({len(silent_night_alto_notes)} half-beats)'
+        ))
 
         self.stdout.write(self.style.SUCCESS(
             "\nSuccessfully seeded vocal lessons.\n"
