@@ -24,11 +24,11 @@ class Command(BaseCommand):
         piano_instrument = Instrument.objects.get(type='piano')
 
         # Create Module (Level 1)
-        module, created = Module.objects.get_or_create(
+        module, created = Module.objects.update_or_create(
             order=1,
             instrument=piano_instrument,
             defaults={
-                'title': 'Level 1',
+                'title': 'Level 1: Hot Cross Buns',
                 'description': 'Introduction to Piano - Learn the basics of piano playing',
             }
         )
@@ -273,11 +273,11 @@ class Command(BaseCommand):
         # ==========================================
         # MODULE 2: LEVEL 2
         # ==========================================
-        module2, created = Module.objects.get_or_create(
+        module2, created = Module.objects.update_or_create(
             order=2,
             instrument=piano_instrument,
             defaults={
-                'title': 'Level 2',
+                'title': 'Level 2: Work Song',
                 'description': 'Advanced Patterns - Challenge your memory and rhythm',
             }
         )
@@ -508,11 +508,11 @@ class Command(BaseCommand):
         # ==========================================
         # MODULE 3: LEVEL 3
         # ==========================================
-        module3, created = Module.objects.get_or_create(
+        module3, created = Module.objects.update_or_create(
             order=3,
             instrument=piano_instrument,
             defaults={
-                'title': 'Level 3',
+                'title': 'Level 3: Three Blind Mice',
                 'description': 'Full Octave - Expand your range across more keys',
             }
         )
@@ -604,7 +604,6 @@ class Command(BaseCommand):
             defaults={
                 'title': "Three Blind Mice",
                 'lesson_type': 'practice',
-                'description': "Learn to play 'Three Blind Mice' using right hand.",
             }
         )
         if created:
@@ -698,7 +697,6 @@ class Command(BaseCommand):
             defaults={
                 'title': "Perform Three Blind Mice",
                 'lesson_type': 'practice',
-                'description': "Perform Three blind mice using both hands.",
             }
         )
         if created:
@@ -722,11 +720,11 @@ class Command(BaseCommand):
         # ==========================================
         # MODULE 4: LEVEL 4
         # ==========================================
-        module4, created = Module.objects.get_or_create(
+        module4, created = Module.objects.update_or_create(
             order=4,
             instrument=piano_instrument,
             defaults={
-                'title': 'Level 4',
+                'title': 'Level 4: Cyanide',
                 'description': 'Advanced Melodies - Master complex sequences',
             }
         )
@@ -931,10 +929,11 @@ class Command(BaseCommand):
         # ==========================================
         # MODULE 5: LEVEL 5
         # ==========================================
-        module5, created = Module.objects.get_or_create(
+        module5, created = Module.objects.update_or_create(
             order=5,
+            instrument=piano_instrument,
             defaults={
-                'title': 'Level 5',
+                'title': 'Level 5: Old Macdonald',
                 'description': 'Advanced Memory - Build your recall skills further',
             }
         )

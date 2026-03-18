@@ -318,23 +318,9 @@ class _VocalLessonScreenState extends State<VocalLessonScreen>
                             orElse: () => LessonModule(id: -1, title: '', description: '', order: -1, lessons: []),
                           );
                           
-                          if (module.id != -1 && module.lessons.isNotEmpty) {
-                            String rawTitle = '';
-                            if (module.lessons.length > 4) {
-                              rawTitle = module.lessons[4].title;
-                            } else if (module.lessons.length > 3) {
-                              rawTitle = module.lessons[3].title;
-                            } else {
-                              rawTitle = module.lessons.last.title;
-                            }
-                            
-                            // Clean up title by removing "Perform " or "Perform: "
-                            String cleanedTitle = rawTitle.replaceAll(RegExp(r'^Perform[:\s]+', caseSensitive: false), '').trim();
-                            if (level == 4) {
-                                cleanedTitle = 'Silent night';
-                            }
-                            if (cleanedTitle.isNotEmpty) {
-                               headerText = 'LEVEL $level: ${cleanedTitle.toUpperCase()}';
+                          if (module.id != -1) {
+                            if (module.title.isNotEmpty) {
+                               headerText = module.title.toUpperCase();
                             }
                           }
                         }
