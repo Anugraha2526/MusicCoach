@@ -72,3 +72,17 @@ music_coach_app/*.iws
 # ========================================
 .DS_Store
 Thumbs.db
+
+# ========================================
+# React / Admin Dashboard
+# ========================================
+music_coach_admin/node_modules/
+music_coach_admin/dist/
+music_coach_admin/dist-ssr/
+music_coach_admin/*.local
+music_coach_admin/.env
+music_coach_admin/.env.*
+music_coach_admin/.eslintcache
+music_coach_admin/npm-debug.log*
+music_coach_admin/yarn-debug.log*
+music_coach_admin/yarn-error.log*
