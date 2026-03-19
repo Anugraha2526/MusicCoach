@@ -106,28 +106,54 @@ class _VocalLessonPerformScreenState extends State<VocalLessonPerformScreen> wit
     }
 
     if (isMumLesson) {
-      // Level 5 Lesson 1: "Singing on mum"
-      // Pattern per line: 1-2-3-4-5-4-3-2-1 using major scale degrees
-      // 11 lines shifting by half-steps: up 5 then back down
-      const mumScaleIntervals = [0, 2, 4, 5, 7]; // Major scale degrees 1-5
-      const mumPattern = [0, 1, 2, 3, 4, 3, 2, 1, 0]; // 1-2-3-4-5-4-3-2-1
-      const lineOffsets = [0, 1, 2, 3, 4, 5, 4, 3, 2, 1, 0]; // 11 lines
+      final bool isLevel5Mum = widget.targetLevel == 5;
 
-      for (int line = 0; line < lineOffsets.length; line++) {
-        final int root = startMidi + lineOffsets[line];
-        for (int p = 0; p < mumPattern.length; p++) {
-          final int midi = root + mumScaleIntervals[mumPattern[p]];
-          final String name = _midiToNoteName(midi);
-          if (p < mumPattern.length - 1) {
-            // Quarter note = 2 half-beats
-            allNotes.addAll([name, '=']);
-          } else {
-            // Last note — half note = 4 half-beats
-            allNotes.addAll([name, '=', '=', '=']);
+      if (isLevel5Mum) {
+        // Level 5 Lesson 1: "Singing on mum" — pattern: g,e,g,e,g,f,e,d,c
+        // Semitone offsets from root: [7,4,7,4,7,5,4,2,0]
+        // 11 lines shifting chromatically: up 5 then back down
+        const l5MumSemitones = [7, 4, 7, 4, 7, 5, 4, 2, 0];
+        const lineOffsets = [0, 1, 2, 3, 4, 5, 4, 3, 2, 1, 0]; // 11 lines
+
+        for (int line = 0; line < lineOffsets.length; line++) {
+          final int root = startMidi + lineOffsets[line];
+          for (int p = 0; p < l5MumSemitones.length; p++) {
+            final int midi = root + l5MumSemitones[p];
+            final String name = _midiToNoteName(midi);
+            if (p < l5MumSemitones.length - 1) {
+              // Quarter note = 2 half-beats
+              allNotes.addAll([name, '=']);
+            } else {
+              // Last note — half note = 4 half-beats
+              allNotes.addAll([name, '=', '=', '=']);
+            }
           }
+          // 2-beat rest gap = 4 half-beats
+          allNotes.addAll(['-', '-', '-', '-']);
         }
-        // 2-beat rest gap = 4 half-beats
-        allNotes.addAll(['-', '-', '-', '-']);
+      } else {
+        // Level 4 Lesson 1: "Singing on mum" — pattern: 1-2-3-4-5-4-3-2-1
+        // 11 lines shifting by half-steps: up 5 then back down
+        const mumScaleIntervals = [0, 2, 4, 5, 7]; // Major scale degrees 1-5
+        const mumPattern = [0, 1, 2, 3, 4, 3, 2, 1, 0]; // 1-2-3-4-5-4-3-2-1
+        const lineOffsets = [0, 1, 2, 3, 4, 5, 4, 3, 2, 1, 0]; // 11 lines
+
+        for (int line = 0; line < lineOffsets.length; line++) {
+          final int root = startMidi + lineOffsets[line];
+          for (int p = 0; p < mumPattern.length; p++) {
+            final int midi = root + mumScaleIntervals[mumPattern[p]];
+            final String name = _midiToNoteName(midi);
+            if (p < mumPattern.length - 1) {
+              // Quarter note = 2 half-beats
+              allNotes.addAll([name, '=']);
+            } else {
+              // Last note — half note = 4 half-beats
+              allNotes.addAll([name, '=', '=', '=']);
+            }
+          }
+          // 2-beat rest gap = 4 half-beats
+          allNotes.addAll(['-', '-', '-', '-']);
+        }
       }
     } else if (isL2L1) {
       // Level 2 Lesson 1: 12321 wave pattern stepping up the scale
@@ -572,6 +598,8 @@ class _VocalLessonPerformScreenState extends State<VocalLessonPerformScreen> wit
       _isFinished = false;
       _pitchHistory.clear();
       _scoredBeats.clear();
+      _noteHitFrames.clear();
+      _noteTotalFrames.clear();
     });
     _startTimer();
     _startListening();
@@ -680,36 +708,54 @@ class _VocalLessonPerformScreenState extends State<VocalLessonPerformScreen> wit
     });
   }
   
-  // Scoring: +1 for each frame where user pitch is within 1.5 semitones of target
+  // Scoring: note is correct when >=45% of its frames are on-pitch
   final Set<int> _scoredBeats = {};
+  final Map<int, int> _noteHitFrames = {};   // note start index → correct frame count
+  final Map<int, int> _noteTotalFrames = {}; // note start index → total frame count seen
   
   void _checkScore() {
       if (_smoothedMidiVal == null || sequences.isEmpty) return;
-      
+
       final currentBeat = _songTimeMs / _beatDurationMs;
-      // Delay score checking until exactly at the playhead 
-      final playheadBeat = currentBeat - 1.0; 
+      final playheadBeat = currentBeat - 1.0;
       final beatIndex = playheadBeat.floor();
-      
+
       final notes = sequences.first.notes;
       if (beatIndex >= 0 && beatIndex < notes.length) {
           String targetNoteName = notes[beatIndex] as String;
           int noteStartIndex = beatIndex;
-          
-          // trace back over hold makers
+
+          // Trace back over hold markers to find note start
           while (targetNoteName == '=' && noteStartIndex > 0) {
               noteStartIndex--;
               targetNoteName = notes[noteStartIndex] as String;
           }
 
-          if (!_scoredBeats.contains(noteStartIndex) && targetNoteName != '-' && targetNoteName != '=') {
-              int targetMidi = _nameToMidi(targetNoteName);
-              // Relaxed threshold: user has the entire length of the note to hit the pitch
-              // Made very forgiving (2.5 semitones) for Level 1 Lesson 1
-              if ((_smoothedMidiVal! - targetMidi).abs() <= 2.5) {
-                  _scoredBeats.add(noteStartIndex);
-                  _score += 1;
-              }
+          if (targetNoteName == '-' || targetNoteName == '=') return;
+
+          // Count total note length (in half-beats)
+          int noteLengthBeats = 1;
+          int j = noteStartIndex + 1;
+          while (j < notes.length && notes[j] == '=') { noteLengthBeats++; j++; }
+
+          // Total frames expected for this note (8ms polling)
+          final int totalFramesExpected = (noteLengthBeats * _beatDurationMs / 8).round();
+
+          // If already scored, skip
+          if (_scoredBeats.contains(noteStartIndex)) return;
+
+          // Accumulate frame counts
+          _noteTotalFrames[noteStartIndex] = (_noteTotalFrames[noteStartIndex] ?? 0) + 1;
+          final int targetMidi = _nameToMidi(targetNoteName);
+          if ((_smoothedMidiVal! - targetMidi).abs() <= 2.5) {
+              _noteHitFrames[noteStartIndex] = (_noteHitFrames[noteStartIndex] ?? 0) + 1;
+          }
+
+          // Score when >=45% of total expected frames for this note have been hit
+          final int hitFrames = _noteHitFrames[noteStartIndex] ?? 0;
+          if (hitFrames >= totalFramesExpected * 0.45) {
+              _scoredBeats.add(noteStartIndex);
+              _score += 1;
           }
       }
   }
@@ -908,12 +954,15 @@ class _VocalLessonPerformScreenState extends State<VocalLessonPerformScreen> wit
                ),
                child: ClipRRect(
                  borderRadius: BorderRadius.circular(12),
-                 child: CustomPaint(
-                   painter: _MiniMapPainter(
-                     notes: notes,
-                     currentBeat: _songTimeMs / _beatDurationMs,
-                     centerMidi: _currentCenterMidi,
-                     scoredBeats: _scoredBeats,
+                 child: AnimatedBuilder(
+                   animation: _repaintController,
+                   builder: (context, child) => CustomPaint(
+                     painter: _MiniMapPainter(
+                       notes: notes,
+                       currentBeat: _songTimeMs / _beatDurationMs,
+                       centerMidi: _currentCenterMidi,
+                       scoredBeats: _scoredBeats,
+                     ),
                    ),
                  ),
                ),
@@ -1220,24 +1269,29 @@ class VocalGraphPainter extends CustomPainter {
         int targetMidi = _nameToMidi(notes[i]);
         final double y = midiToY(targetMidi.toDouble());
         
-        // Determine state for visual feedback (scoring kept for future levels)
+        // Determine state for visual feedback
         bool isActive = currentBeat >= i && currentBeat < i + (noteWidth / beatWidth);
-        
-        // Always show the pink fill — score only tracked in minimap
-        Color fill = isActive
-            ? const Color(0xFFE93B81).withOpacity(0.45) // slightly dim glow when being sung
-            : const Color(0xFFE93B81).withOpacity(0.18); // always-on light pink fill
+        bool isScored = scoredBeats.contains(i);
+
+        // Fill: bright solid pink when scored, otherwise light pink
+        Color fill = isScored
+            ? const Color(0xFFE93B81).withOpacity(0.85) // Fully lit when correctly sung
+            : isActive
+                ? const Color(0xFFE93B81).withOpacity(0.45)
+                : const Color(0xFFE93B81).withOpacity(0.18);
 
         final Paint noteFillPaint = Paint()
           ..color = fill
           ..style = PaintingStyle.fill;
-          
+
         final Paint noteStrokePaint = Paint()
-          ..color = isActive
-              ? const Color(0xFFE93B81)
-              : const Color(0xFFE93B81).withOpacity(0.55)
+          ..color = isScored
+              ? const Color(0xFFE93B81)              // Bright stroke when scored
+              : isActive
+                  ? const Color(0xFFE93B81)
+                  : const Color(0xFFE93B81).withOpacity(0.55)
           ..style = PaintingStyle.stroke
-          ..strokeWidth = isActive ? 2.5 : 1.5;
+          ..strokeWidth = (isActive || isScored) ? 2.5 : 1.5;
 
         final RRect noteRect = RRect.fromRectAndRadius(
            Rect.fromLTWH(noteX + 4, y - 12, noteWidth - 8, 24),
@@ -1251,8 +1305,8 @@ class VocalGraphPainter extends CustomPainter {
         textPainter.text = TextSpan(
           text: notes[i],
           style: TextStyle(
-            color: isActive ? Colors.white : Colors.white.withOpacity(0.7), 
-            fontSize: 12, 
+            color: (isActive || isScored) ? Colors.white : Colors.white.withOpacity(0.7),
+            fontSize: 12,
             fontWeight: FontWeight.bold,
           ),
         );
@@ -1264,7 +1318,7 @@ class VocalGraphPainter extends CustomPainter {
         if (targetLevel == 1) syllable = 'La';
         else if (targetLevel == 2) syllable = 'Mm';
         else if (targetLevel == 3) syllable = 'Oo';
-        else if (targetLevel == 4 && lessonTitle != null && lessonTitle!.toLowerCase().contains('mum')) syllable = 'mum';
+        else if ((targetLevel == 4 || targetLevel == 5) && lessonTitle != null && lessonTitle!.toLowerCase().contains('mum')) syllable = 'mum';
 
         if (syllable.isNotEmpty) {
             textPainter.text = TextSpan(
@@ -1437,12 +1491,10 @@ class _MiniMapPainter extends CustomPainter {
       bool isHit = scoredBeats.contains(i);
 
       Color barColor;
-      if (isHit && isPassed) {
-        barColor = const Color(0xFFE93B81); // Fully colored if properly sung and passed
-      } else if (isHit && isActive) {
-        barColor = const Color(0xFFE93B81).withOpacity(0.6); // Lightly colored if hit currently
+      if (isHit) {
+        barColor = const Color(0xFFE93B81); // Correctly sung: bright pink
       } else {
-        barColor = Colors.white.withOpacity(0.2); // Don't color (dim) if missed or future
+        barColor = Colors.white.withOpacity(0.2); // Everything else: same dim white
       }
 
       final RRect rr = RRect.fromRectAndRadius(
