@@ -588,6 +588,20 @@ class Command(BaseCommand):
         else:
             self.stdout.write(self.style.SUCCESS(f'Created lesson: {lesson5_2.title}'))
 
+        # Create Lesson 3 for Level 5: Alto Part (Joy to the World)
+        lesson5_3, created = Lesson.objects.get_or_create(
+            module=module5,
+            order=3,
+            defaults={'title': "Alto Part: Learn it solo", 'lesson_type': 'practice'}
+        )
+        if not created:
+            lesson5_3.title = "Alto Part: Learn it solo"
+            lesson5_3.save()
+            deleted_count = lesson5_3.sequences.all().delete()[0]
+            self.stdout.write(f'Cleared {deleted_count} old sequence(s) from Level 5 Lesson 3')
+        else:
+            self.stdout.write(self.style.SUCCESS(f'Created lesson: {lesson5_3.title}'))
+
         # Joy to the World soprano melody — C major, 4/4
         # Half-beat resolution: each element = 0.5 beat
         # 20 bars × 8 half-beats = 160 half-beats total
@@ -672,12 +686,12 @@ class Command(BaseCommand):
             'And heaven and nature', 'And heaven and nature', 'And heaven and nature', 'And heaven and nature',
             'sing', 'sing', 'sing', 'sing', 'sing', 'sing', 'sing', 'sing',
             # Bar 17-20: "And heaven and nature sing" (third, final)
-            'And heaven and nature', 'And heaven and nature', 'And heaven and nature', 'And heaven and nature',
-            'And heaven and nature', 'And heaven and nature', 'And heaven and nature', 'And heaven and nature',
-            'And heaven and nature', 'And heaven and nature', 'And heaven and nature', 'And heaven and nature',
-            'And heaven and nature', 'And heaven and nature', 'And heaven and nature', 'And heaven and nature',
-            'And heaven and nature', 'And heaven and nature', 'And heaven and nature', 'And heaven and nature',
-            'sing', 'sing', 'sing', 'sing','sing', 'sing', 'sing', 'sing',
+            'And heaven and heaven', 'And heaven and heaven', 'And heaven and heaven', 'And heaven and heaven',
+            'And heaven and heaven', 'And heaven and heaven', 'And heaven and heaven', 'And heaven and heaven',
+            'And heaven and heaven', 'And heaven and heaven', 'And heaven and heaven', 'And heaven and heaven',
+            'And heaven and heaven', 'And heaven and heaven', 'And heaven and heaven', 'And heaven and heaven',
+            'and nature', 'and nature', 'and nature', 'and nature',
+            'and nature', 'and nature', 'and nature', 'and nature',
             'sing', 'sing', 'sing', 'sing','sing', 'sing', 'sing', 'sing',
         ]
 
@@ -691,6 +705,61 @@ class Command(BaseCommand):
         )
         self.stdout.write(self.style.SUCCESS(
             f'Created Joy to the World soprano sequence ({len(joy_to_world_notes)} half-beats)'
+        ))
+
+        joy_to_world_alto_notes = [
+            # Bar 1
+            '-', '-', '-', '-', '-', '-', '-', '-',
+            # Bar 2
+            'E3', '=', '=', '=', 'G3', '=', '=', 'F3',
+            # Bar 3
+            'E3', '=', '=', '=', '=', '=', 'D3', '=',
+            # Bar 4
+            'C3', '=', '=', '=', 'B2', '=', '=', '=',
+            # Bar 5
+            'C3', '=', '=', '=', '=', '=', 'C3', '=',
+            # Bar 6
+            'F3', '=', '=', '=', '=', '=', 'F3', '=',
+            # Bar 7
+            'D3', '=', '=', '=', '=', '=', 'D3', '=',
+            # Bar 8
+            'E3', '=', '=', '=', '=', '=', 'E3', '=',
+            # Bar 9
+            'E3', '=', 'G3', '=', 'F3', '=', 'E3', '=',
+            # Bar 10
+            'E3', '=', '=', 'D3', 'C3', '=', 'E3', '=',
+            # Bar 11
+            'E3', '=', 'G3', '=', 'F3', '=', 'E3', '=',
+            # Bar 12
+            'E3', '=', '=', 'D3', 'C3', '=', 'C3', '=',
+            # Bar 13
+            'C3', '=', 'C3', '=', 'C3', '=', 'C3', 'D3',
+            # Bar 14
+            'E3', '=', '=', '=', '=', '=', 'D3', 'C3',
+            # Bar 15
+            'B2', '=', 'B2', '=', 'B2', '=', 'B2', 'C3',
+            # Bar 16
+            'D3', '=', '=', '=', '=', '=', 'C3', 'B2',
+            # Bar 17
+            'C3', '=', 'E3', '=', '=', '=', 'F3', '=',
+            # Bar 18
+            'E3', '=', '=', 'D3', 'C3', '=', 'D3', '=',
+            # Bar 19
+            'C3', '=', '=', '=', 'B2', '=', '=', '=',
+            # Bar 20
+            'C3', '=', '=', '=', '=', '=', '=', '=',
+        ]
+
+        PracticeSequence.objects.create(
+            lesson=lesson5_3,
+            order=1,
+            sequence_type='perform',
+            notes=joy_to_world_alto_notes,
+            lyrics=joy_to_world_lyrics,
+            time_signature='4/4',
+        )
+        self.stdout.write(self.style.SUCCESS(
+            f'Created Joy to the World alto sequence ({len(joy_to_world_alto_notes)} half-beats)'
         ))
 
         self.stdout.write(self.style.SUCCESS(
