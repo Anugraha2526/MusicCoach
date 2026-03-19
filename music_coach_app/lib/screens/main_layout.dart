@@ -124,6 +124,7 @@ class _MainLayoutState extends State<MainLayout> {
     return PopScope(
       canPop: false, // Prevent back button from going to landing/login
       child: Scaffold(
+        backgroundColor: const Color(0xFF0F172A), // Matches dark theme to hide white edges behind nav bar radii
         body: _screens[_currentIndex],
         bottomNavigationBar: AppBottomNavBar(
           currentIndex: _currentIndex,

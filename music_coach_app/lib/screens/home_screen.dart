@@ -3,6 +3,8 @@ import 'package:music_coach/services/auth_service.dart';
 import 'package:music_coach/services/instrument_service.dart';
 import 'package:music_coach/models/instrument_item.dart';
 import 'package:music_coach/widgets/cached_instrument_image.dart';
+import 'package:music_coach/services/progress_service.dart';
+import 'package:music_coach/services/lesson_service.dart';
 
 class HomeScreen extends StatefulWidget {
   final Function(String)? onLessonTap;
@@ -19,6 +21,10 @@ class _HomeScreenState extends State<HomeScreen> {
   String? errorMessage;
   String? username;
 
+  // Dynamic progress maps
+  Map<String, int> _totalLessonsMap = {};
+  Map<String, int> _completedLessonsMap = {};
+
   // Color mapping for different instrument types
   final Map<String, Color> _colorMap = {
     'piano': const Color(0xFF00B4D8),
@@ -28,11 +34,11 @@ class _HomeScreenState extends State<HomeScreen> {
     'pitch': const Color(0xFFFF006E),
   };
 
-  // Description mapping for instruments
+  // Description mapping for instruments (fallback)
   final Map<String, String> _descriptionMap = {
-    'piano': '15 Lessons',
-    'vocals': '15 Lessons',
-    'vocal': '15 Lessons',
+    'piano': 'Loading...',
+    'vocals': 'Loading...',
+    'vocal': 'Loading...',
     'guitar': 'Tune your guitar',
     'pitch': 'Real-time pitch',
   };
@@ -55,8 +61,38 @@ class _HomeScreenState extends State<HomeScreen> {
     // Load instruments
     try {
       final fetchedInstruments = await InstrumentService.fetchInstruments();
+      
+      // Load progress map
+      final completedIds = await ProgressService.getCompletedLessons();
+      Map<String, int> totalMap = {};
+      Map<String, int> completedMap = {};
+
+      for (var instrument in fetchedInstruments) {
+        if (_hasProgressBar(instrument.type)) {
+          try {
+            final modules = await LessonService.fetchModules(instrumentType: instrument.type);
+            int total = 0;
+            int completedCount = 0;
+            for (var module in modules) {
+              total += module.lessons.length;
+              for (var lesson in module.lessons) {
+                if (completedIds.contains(lesson.id)) {
+                  completedCount++;
+                }
+              }
+            }
+            totalMap[instrument.type] = total;
+            completedMap[instrument.type] = completedCount;
+          } catch (e) {
+            print('Error fetching lessons for ${instrument.type}: $e');
+          }
+        }
+      }
+
       setState(() {
         instruments = fetchedInstruments;
+        _totalLessonsMap = totalMap;
+        _completedLessonsMap = completedMap;
         isLoading = false;
       });
     } catch (e) {
@@ -72,6 +108,11 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   String _getDescriptionForType(String type) {
+    if (_hasProgressBar(type)) {
+      if (_totalLessonsMap.containsKey(type)) {
+        return '${_totalLessonsMap[type]} Lessons';
+      }
+    }
     return _descriptionMap[type.toLowerCase()] ?? 'Lessons';
   }
 
@@ -103,9 +144,11 @@ class _HomeScreenState extends State<HomeScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Welcome Section
-              const Text(
-                'Welcome back,',
-                style: TextStyle(
+              Text(
+                username != null && username!.trim().isNotEmpty
+                    ? 'Welcome back, ${username!.trim()}!'
+                    : 'Welcome back,',
+                style: const TextStyle(
                   color: Colors.white,
                   fontSize: 24,
                   fontWeight: FontWeight.w400,
@@ -243,11 +286,17 @@ class _HomeScreenState extends State<HomeScreen> {
                     final description = _getDescriptionForType(instrument.type);
                     final hasProgress = _hasProgressBar(instrument.type);
 
+                    double widthFactor = 0.0;
+                    if (hasProgress && _totalLessonsMap.containsKey(instrument.type) && _totalLessonsMap[instrument.type]! > 0) {
+                      widthFactor = (_completedLessonsMap[instrument.type] ?? 0) / _totalLessonsMap[instrument.type]!;
+                    }
+
                     return _ModeCard(
                       instrument: instrument,
                       color: color,
                       description: description,
                       hasProgress: hasProgress,
+                      progressFraction: widthFactor,
                       onTap: () => _navigateToInstrument(instrument),
                     );
                   },
@@ -265,6 +314,7 @@ class _ModeCard extends StatelessWidget {
   final Color color;
   final String description;
   final bool hasProgress;
+  final double progressFraction;
   final VoidCallback onTap;
 
   const _ModeCard({
@@ -272,6 +322,7 @@ class _ModeCard extends StatelessWidget {
     required this.color,
     required this.description,
     required this.hasProgress,
+    this.progressFraction = 0.0,
     required this.onTap,
   });
 
@@ -319,18 +370,26 @@ class _ModeCard extends StatelessWidget {
             // Progress Bar (only for piano and vocals)
             if (hasProgress)
               Container(
-                height: 4,
+                height: 8,
+                width: double.infinity,
                 decoration: BoxDecoration(
-                  color: const Color(0xFF334155),
-                  borderRadius: BorderRadius.circular(2),
+                  color: Colors.white.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(4),
                 ),
                 child: FractionallySizedBox(
                   alignment: Alignment.centerLeft,
-                  widthFactor: 0.4, // 40% progress (static for now)
+                  widthFactor: progressFraction.clamp(0.0, 1.0),
                   child: Container(
                     decoration: BoxDecoration(
                       color: color,
-                      borderRadius: BorderRadius.circular(2),
+                      borderRadius: BorderRadius.circular(4),
+                      boxShadow: [
+                        BoxShadow(
+                          color: color.withOpacity(0.5),
+                          blurRadius: 4,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
                     ),
                   ),
                 ),
