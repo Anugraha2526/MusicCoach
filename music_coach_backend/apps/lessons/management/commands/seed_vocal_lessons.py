@@ -200,7 +200,7 @@ class Command(BaseCommand):
             module4.save()
         module5, _ = Module.objects.update_or_create(
             order=5, instrument=vocals_instrument,
-            defaults={'title': 'Level 5', 'description': 'Vocal Mastery'}
+            defaults={'title': "Level 5: Singing on 'mum'", 'description': 'Vocal Mastery'}
         )
 
         # Create Lessons for Level 3 (Same patterns as Level 2 but for "Aa...")
@@ -366,7 +366,6 @@ class Command(BaseCommand):
         # Clean up old locations if it exists
         Lesson.objects.filter(module=module1, order=1, title="Singing on 'mum'").delete()
         Lesson.objects.filter(module=module2, order=1, title="Singing on 'mum'").delete()
-        Lesson.objects.filter(module=module5, order=1, title="Singing on 'mum'").delete()
 
         # Create Lesson 3 for Level 4: Alto Part - Learn it solo (Silent Night)
         lesson4_3, created = Lesson.objects.get_or_create(
@@ -557,6 +556,20 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS(
             f'Created Silent Night bass sequence ({len(silent_night_bass_notes)} half-beats)'
         ))
+
+        # Create Lesson 1 for Level 5: Singing on "mum" (g,e,g,e,g,f,e,d,c pattern)
+        lesson5_1, created = Lesson.objects.get_or_create(
+            module=module5,
+            order=1,
+            defaults={'title': "Singing on 'mum'", 'lesson_type': 'practice'}
+        )
+        if not created:
+            lesson5_1.title = "Singing on 'mum'"
+            lesson5_1.save()
+            deleted_count = lesson5_1.sequences.all().delete()[0]
+            self.stdout.write(f'Cleared {deleted_count} old sequence(s) from Level 5 Lesson 1')
+        else:
+            self.stdout.write(self.style.SUCCESS(f'Created lesson: {lesson5_1.title}'))
 
         self.stdout.write(self.style.SUCCESS(
             "\nSuccessfully seeded vocal lessons.\n"
