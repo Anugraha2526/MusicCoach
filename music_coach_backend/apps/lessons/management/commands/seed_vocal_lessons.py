@@ -616,6 +616,20 @@ class Command(BaseCommand):
         else:
             self.stdout.write(self.style.SUCCESS(f'Created lesson: {lesson5_4.title}'))
 
+        # Create Lesson 5 for Level 5: Bass Part (Joy to the World)
+        lesson5_5, created = Lesson.objects.get_or_create(
+            module=module5,
+            order=5,
+            defaults={'title': "Bass Part: Learn it solo", 'lesson_type': 'practice'}
+        )
+        if not created:
+            lesson5_5.title = "Bass Part: Learn it solo"
+            lesson5_5.save()
+            deleted_count = lesson5_5.sequences.all().delete()[0]
+            self.stdout.write(f'Cleared {deleted_count} old sequence(s) from Level 5 Lesson 5')
+        else:
+            self.stdout.write(self.style.SUCCESS(f'Created lesson: {lesson5_5.title}'))
+
         # Joy to the World soprano melody — C major, 4/4
         # Half-beat resolution: each element = 0.5 beat
         # 20 bars × 8 half-beats = 160 half-beats total
@@ -829,6 +843,61 @@ class Command(BaseCommand):
         )
         self.stdout.write(self.style.SUCCESS(
             f'Created Joy to the World tenor sequence ({len(joy_to_world_tenor_notes)} half-beats)'
+        ))
+
+        joy_to_world_bass_notes = [
+            # Bar 1
+            '-', '-', '-', '-', '-', '-', '-', '-',
+            # Bar 2
+            'C3', '=', '=', '=', 'C3', '=', '=', 'C3',
+            # Bar 3
+            'C3', '=', '=', '=', '=', '=', 'F2', '=',
+            # Bar 4
+            'G2', '=', '=', '=', 'G2', '=', '=', '=',
+            # Bar 5
+            'C3', '=', '=', '=', '=', '=', 'E3', '=',
+            # Bar 6
+            'F3', '=', '=', '=', '=', '=', 'F3', '=',
+            # Bar 7
+            'G3', '=', '=', '=', '=', '=', 'G3', '=',
+            # Bar 8
+            'C3', '=', '=', '=', '=', '=', 'C3', '=',
+            # Bar 9
+            'C3', '=', '=', '=', 'C3', '=', '=', '=',
+            # Bar 10
+            'C3', '=', '=', '=', '=', '=', 'C3', '=',
+            # Bar 11
+            'C3', '=', '=', '=', 'C3', '=', '=', '=',
+            # Bar 12
+            'C3', '=', '=', '=', '=', '=', '-', '-',
+            # Bar 13
+            '-', '-', '-', '-', '-', '-', 'C3', '=',
+            # Bar 14
+            'C3', '=', 'C3', '=', 'C3', '=', 'C3', '=',
+            # Bar 15
+            'G3', '=', '=', '=', '=', '=', 'G2', '=',
+            # Bar 16
+            'G2', '=', 'G2', '=', 'G2', '=', 'G2', '=',
+            # Bar 17
+            'C3', '=', '=', '=', '=', '=', 'C3', '=',
+            # Bar 18
+            'C3', '=', '=', '=', '=', '=', 'G2', '=',
+            # Bar 19
+            'G2', '=', '=', '=', 'G2', '=', '=', '=',
+            # Bar 20
+            'C3', '=', '=', '=', '=', '=', '=', '=',
+        ]
+
+        PracticeSequence.objects.create(
+            lesson=lesson5_5,
+            order=1,
+            sequence_type='perform',
+            notes=joy_to_world_bass_notes,
+            lyrics=joy_to_world_lyrics,
+            time_signature='4/4',
+        )
+        self.stdout.write(self.style.SUCCESS(
+            f'Created Joy to the World bass sequence ({len(joy_to_world_bass_notes)} half-beats)'
         ))
 
         self.stdout.write(self.style.SUCCESS(
