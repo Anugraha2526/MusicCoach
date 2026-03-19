@@ -8,20 +8,55 @@ class ProgressService {
   static const String _completedKey = 'completed_lessons';
 
   /// Mark a specific lesson ID as completed.
-  static Future<void> markLessonCompleted(int lessonId) async {
+  /// If [allModules], [targetLevel], and [targetLessonIndex] are provided (even for non-jumps),
+  /// this will also mark all EARLIER lessons IN THE SAME LEVEL as completed.
+  /// This ensures within-level catchup (e.g. playing Lesson 4 directly marks 1-3 as complete).
+  static Future<void> markLessonCompleted(
+    int lessonId, {
+    List<dynamic>? allModules,
+    int? targetLevel,
+    int? targetLessonIndex,
+  }) async {
     final prefs = await SharedPreferences.getInstance();
     List<String> completed = prefs.getStringList(_completedKey) ?? [];
+    bool changed = false;
+
     if (!completed.contains(lessonId.toString())) {
       completed.add(lessonId.toString());
+      changed = true;
+    }
+
+    // Within-level catchup: mark earlier lessons in the **same level** as complete
+    if (allModules != null && targetLevel != null && targetLessonIndex != null) {
+      for (var module in allModules) {
+        if (module.order == targetLevel) {
+          for (int i = 0; i < module.lessons.length; i++) {
+            if (i < targetLessonIndex) {
+              final earlierLessonId = module.lessons[i].id.toString();
+              if (!completed.contains(earlierLessonId)) {
+                completed.add(earlierLessonId);
+                changed = true;
+              }
+            }
+          }
+          break; // Found the target level, no need to keep searching modules
+        }
+      }
+    }
+
+    if (changed) {
       await prefs.setStringList(_completedKey, completed);
-      print('DEBUG: Lesson $lessonId marked as completed locally.');
+      print('DEBUG: Lesson $lessonId (and potentially earlier in level) marked as completed.');
       
       // Async sync to backend
       _syncToBackend(completed);
     }
   }
 
-  /// Mass unlock all lessons in previous levels, and all earlier lessons in the current level.
+  /// Mass unlock all lessons in previous (skipped) levels when a user jumps to a higher level.
+  /// Only marks levels BELOW targetLevel as completed — the target level is unlocked on the
+  /// map automatically because Level(N-1)'s last lesson is now in the completed set.
+  /// This keeps the home screen progress bar honest: only actually-played lessons count.
   static Future<void> unlockLessonsUpTo(int targetLevel, int targetLessonIndex, dynamic allModules) async {
     final prefs = await SharedPreferences.getInstance();
     List<String> completed = prefs.getStringList(_completedKey) ?? [];
@@ -30,25 +65,18 @@ class ProgressService {
     // allModules should be a List<LessonModule>
     for (var module in allModules) {
       if (module.order < targetLevel) {
-        // Unlock all lessons in previous levels
+        // Mark ALL lessons in every skipped/previous level as completed
         for (var lesson in module.lessons) {
           if (!completed.contains(lesson.id.toString())) {
             completed.add(lesson.id.toString());
             changed = true;
           }
         }
-      } else if (module.order == targetLevel) {
-        // Unlock lessons in the current level up to (and including) the target index
-        for (int i = 0; i < module.lessons.length; i++) {
-          if (i <= targetLessonIndex) {
-            final lessonId = module.lessons[i].id.toString();
-            if (!completed.contains(lessonId)) {
-              completed.add(lessonId);
-              changed = true;
-            }
-          }
-        }
       }
+      // targetLevel lessons are intentionally NOT bulk-completed here.
+      // Level (targetLevel-1)'s last lesson being complete is sufficient to
+      // unlock targetLevel on the map.  Individual lesson completions within
+      // targetLevel are tracked normally via markLessonCompleted.
     }
 
     if (changed) {

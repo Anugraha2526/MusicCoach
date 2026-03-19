@@ -13,67 +13,80 @@ class AppBottomNavBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: const BoxDecoration(
-        color: Color(0xFF132238), // Slightly lighter dark blue
-      ),
-      child: BottomNavigationBar(
-        currentIndex: currentIndex,
-        onTap: onTap,
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        selectedItemColor: const Color(0xFF00B4D8), // Blue for active
-        unselectedItemColor: const Color(0xFF94A3B8), // Gray for inactive
-        selectedLabelStyle: const TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.w500,
-        ),
-        unselectedLabelStyle: const TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.w400,
-        ),
-        type: BottomNavigationBarType.fixed,
-        items: [
-          BottomNavigationBarItem(
-            icon: _buildIcon(Icons.home, 0),
-            activeIcon: _buildActiveIcon(Icons.home, 0),
-            label: 'Home',
-          ),
-          BottomNavigationBarItem(
-            icon: _buildIcon(Icons.fitness_center, 1), // Dumbbells icon for Lessons
-            activeIcon: _buildActiveIcon(Icons.fitness_center, 1),
-            label: 'Lessons',
-          ),
-          BottomNavigationBarItem(
-            icon: _buildIcon(Icons.person, 2),
-            activeIcon: _buildActiveIcon(Icons.person, 2),
-            label: 'Profile',
+      decoration: BoxDecoration(
+        color: const Color(0xFF132238), // Slightly lighter dark blue
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.2),
+            blurRadius: 15,
+            offset: const Offset(0, -2),
           ),
         ],
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _buildNavItem(Icons.home_rounded, 'Home', 0),
+              _buildNavItem(Icons.fitness_center_rounded, 'Lessons', 1),
+              _buildNavItem(Icons.person_rounded, 'Profile', 2),
+            ],
+          ),
+        ),
       ),
     );
   }
 
-  Widget _buildIcon(IconData icon, int index) {
-    final isActive = currentIndex == index;
-    if (isActive) {
-      return _buildActiveIcon(icon, index);
-    }
-    return Icon(
-      icon,
-      color: const Color(0xFF94A3B8),
-    );
-  }
+  Widget _buildNavItem(IconData icon, String label, int index) {
+    final isSelected = currentIndex == index;
 
-  Widget _buildActiveIcon(IconData icon, int index) {
-    return Container(
-      padding: const EdgeInsets.all(8),
-      decoration: BoxDecoration(
-        color: const Color(0xFF00B4D8).withOpacity(0.2),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Icon(
-        icon,
-        color: const Color(0xFF00B4D8),
+    return GestureDetector(
+      onTap: () => onTap(index),
+      behavior: HitTestBehavior.opaque,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 350),
+        curve: Curves.easeOutQuint,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        decoration: BoxDecoration(
+          color: isSelected ? const Color(0xFF00B4D8).withOpacity(0.15) : Colors.transparent,
+          borderRadius: BorderRadius.circular(24),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 350),
+              curve: Curves.easeOutQuint,
+              child: Icon(
+                icon,
+                color: isSelected ? const Color(0xFF00B4D8) : const Color(0xFF94A3B8),
+                size: isSelected ? 26 : 24,
+              ),
+            ),
+            AnimatedSize(
+              duration: const Duration(milliseconds: 350),
+              curve: Curves.easeOutQuint,
+              alignment: Alignment.centerLeft,
+              child: isSelected
+                  ? Padding(
+                      padding: const EdgeInsets.only(left: 8.0),
+                      child: Text(
+                        label,
+                        style: const TextStyle(
+                          color: Color(0xFF00B4D8),
+                          fontWeight: FontWeight.w600,
+                          fontSize: 14,
+                        ),
+                        maxLines: 1,
+                      ),
+                    )
+                  : const SizedBox.shrink(),
+            ),
+          ],
+        ),
       ),
     );
   }

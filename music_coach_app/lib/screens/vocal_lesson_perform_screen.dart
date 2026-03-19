@@ -824,7 +824,17 @@ class _VocalLessonPerformScreenState extends State<VocalLessonPerformScreen> wit
   }
   
   void _onLessonComplete() async {
-      await ProgressService.markLessonCompleted(widget.lessonId);
+      await ProgressService.markLessonCompleted(
+        widget.lessonId,
+        allModules: widget.allModules,
+        targetLevel: widget.targetLevel,
+        targetLessonIndex: widget.targetLessonIndex,
+      );
+      
+      // If we have level info, it means we can potentially unlock previous levels
+      if (widget.targetLevel != null && widget.targetLessonIndex != null && widget.allModules != null) {
+        await ProgressService.unlockLessonsUpTo(widget.targetLevel!, widget.targetLessonIndex!, widget.allModules);
+      }
       
       if (!mounted) return;
       

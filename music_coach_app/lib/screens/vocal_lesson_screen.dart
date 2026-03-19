@@ -438,7 +438,7 @@ class _VocalLessonScreenState extends State<VocalLessonScreen>
                                 isAvailable: isEffectivelyPlayable,
                                 isSelected: selectedLessonIndex == index,
                                 onTap: () => _onLessonSelect(index),
-                                onStart: () => _onLessonStart(
+                                  onStart: () => _onLessonStart(
                                   index, 
                                   backendLesson, 
                                   !isEffectivelyPlayable, // <--- Key fix: use effectively playable state

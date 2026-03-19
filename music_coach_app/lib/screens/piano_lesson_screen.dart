@@ -55,7 +55,7 @@ class _PianoLessonScreenState extends State<PianoLessonScreen>
 
   Future<void> _loadLessons() async {
     try {
-      final modules = await LessonService.fetchModules();
+      final modules = await LessonService.fetchModules(instrumentType: 'piano');
       final completed = await ProgressService.getCompletedLessons();
       
       if (mounted) {
