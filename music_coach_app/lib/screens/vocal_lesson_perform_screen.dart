@@ -48,16 +48,29 @@ class _VocalLessonPerformScreenState extends State<VocalLessonPerformScreen> wit
   Timer? _pollingTimer;
   Timer? _songTimer;
   
-  final List<PitchFrame> _pitchHistory = []; 
-  final int maxPoints = 200;  
+  final List<PitchFrame> _pitchHistory = [];
+  final int maxPoints = 200;
   
   final _audioCapture = FlutterAudioCapture();
-  // Buffer size 2048 for faster pitch detection (was 4096)
+  // Buffer size 2048 for faster pitch detection
   final _pitchDetector = PitchDetector(audioSampleRate: 44100, bufferSize: 2048);
   bool _micGranted = false;
-  
+
   double? _currentMidiVal;
   double? _smoothedMidiVal;
+
+  // Circular pitch history buffer — avoids O(n) removeAt(0) every frame
+  final List<PitchFrame?> _pitchBuffer = List.filled(200, null);
+  int _pitchWriteIdx = 0;
+  int _pitchCount = 0;
+
+  // Pre-computed note lookup maps — built once on lesson load, O(1) in _checkScore
+  // noteStartIndex → note start index (trace-back already done)
+  final Map<int, int> _noteStartMap = {};
+  // noteStartIndex → note length in half-beats
+  final Map<int, int> _noteLengthMap = {};
+  // noteStartIndex → target MIDI number
+  final Map<int, int> _noteMidiMap = {};
   
   // Center MIDI for the graph view — updated dynamically from natural pitch
   double _currentCenterMidi = 55.0;
@@ -433,7 +446,32 @@ class _VocalLessonPerformScreenState extends State<VocalLessonPerformScreen> wit
 
         setState(() {
           if (fetchedSequences.isNotEmpty) {
-            // Use backend sequences as-is
+            // Use backend sequences, transposed to match the user's natural pitch
+            if (naturalMidi != null) {
+              int offset = naturalMidi.round() - 48; // Backend sequences are authored relative to C3 (MIDI 48)
+              if (offset != 0) {
+                for (int i = 0; i < fetchedSequences.length; i++) {
+                  var seq = fetchedSequences[i];
+                  List<dynamic> transposedNotes = [];
+                  for (var note in seq.notes) {
+                    if (note == '-' || note == '=') {
+                      transposedNotes.add(note);
+                    } else {
+                      int midi = _nameToMidi(note as String);
+                      transposedNotes.add(_midiToNoteName(midi + offset));
+                    }
+                  }
+                  fetchedSequences[i] = PracticeSequence(
+                    id: seq.id,
+                    order: seq.order,
+                    type: seq.type,
+                    notes: transposedNotes.cast<String>(),
+                    lyrics: seq.lyrics,
+                    timeSignature: seq.timeSignature,
+                  );
+                }
+              }
+            }
             sequences = fetchedSequences;
           } else if (naturalMidi != null) {
             // No backend sequences → generate dynamically from natural pitch
@@ -450,6 +488,11 @@ class _VocalLessonPerformScreenState extends State<VocalLessonPerformScreen> wit
           }
 
           isLoading = false;
+
+          // Build O(1) note lookup maps for scoring
+          if (sequences.isNotEmpty) {
+            _buildNoteMaps(sequences.first.notes);
+          }
 
           // Count max possible score (number of non-rest beats)
           if (sequences.isNotEmpty) {
@@ -589,6 +632,29 @@ class _VocalLessonPerformScreenState extends State<VocalLessonPerformScreen> wit
     } catch (_) {}
   }
 
+  /// Precompute per-beat-index: note start, note length, target MIDI
+  /// Called once after sequences load — makes _checkScore O(1).
+  void _buildNoteMaps(List<dynamic> notes) {
+    _noteStartMap.clear();
+    _noteLengthMap.clear();
+    _noteMidiMap.clear();
+    for (int i = 0; i < notes.length; i++) {
+      final n = notes[i] as String;
+      if (n == '-' || n == '=') continue;
+      // Measure note length
+      int len = 1;
+      int j = i + 1;
+      while (j < notes.length && notes[j] == '=') { len++; j++; }
+      final int midi = _nameToMidi(n);
+      // Every beat index within this note points to the start
+      for (int k = i; k < i + len; k++) {
+        _noteStartMap[k] = i;
+      }
+      _noteLengthMap[i] = len;
+      _noteMidiMap[i] = midi;
+    }
+  }
+
   void _startPlaying() {
     if (_isPlaying) return;
     setState(() {
@@ -596,7 +662,8 @@ class _VocalLessonPerformScreenState extends State<VocalLessonPerformScreen> wit
       _songTimeMs = 0;
       _score = 0;
       _isFinished = false;
-      _pitchHistory.clear();
+      _pitchWriteIdx = 0;
+      _pitchCount = 0;
       _scoredBeats.clear();
       _noteHitFrames.clear();
       _noteTotalFrames.clear();
@@ -616,148 +683,118 @@ class _VocalLessonPerformScreenState extends State<VocalLessonPerformScreen> wit
   int _lastPlayedBeat = -1;
 
   void _startTimer() {
-    // Poll pitch at 100fps for low latency (was 22ms)
-    const int pollMs = 10;
-    _pollingTimer = Timer.periodic(const Duration(milliseconds: pollMs), (timer) {
-        if (_currentMidiVal != null) {
-          if (_smoothedMidiVal == null) {
-             _smoothedMidiVal = _currentMidiVal;
-          } else {
-             // 0.6 smoothing factor responds much faster than previous 0.15
-             _smoothedMidiVal = _smoothedMidiVal! + (_currentMidiVal! - _smoothedMidiVal!) * 0.6;
-          }
-        } else {
-          _smoothedMidiVal = null;
-        }
+    // Single 16ms combined loop (pitch smooth + song advance + score check)
+    // Eliminates the overhead of two separate high-frequency timers.
+    const int stepMs = 16;
+    _lastPlayedBeat = -1;
 
-        _pitchHistory.add(PitchFrame(_smoothedMidiVal, _songTimeMs));
-        if (_pitchHistory.length > maxPoints) { 
-          _pitchHistory.removeAt(0); 
-        }
-    });
-    
-    // 120fps physics steps for ultra-smooth scrolling (was 16ms)
-    const int songStepMs = 8;
-    _lastPlayedBeat = -1; // Reset when starting
-    
-    // Play the very first beat (index 0) immediately, since the loop starts looking ahead at beat 1
+    // Play the very first chord immediately
     if (_audioInitialized) {
-        Future.microtask(() {
-            List<String> startingChord = _chordBeats[0] ?? [];
-            if (widget.lessonTitle?.toLowerCase().contains('soprano part') == true) {
-                startingChord = ['C3', 'E3', 'G3'];
-            }
-            for (var cn in startingChord) {
-               final src = _noteSources[cn];
-               if (src != null) _soloud.play(src, volume: 0.45);
-            }
-        });
+      Future.microtask(() {
+        List<String> startingChord = _chordBeats[0] ?? [];
+        if (widget.lessonTitle?.toLowerCase().contains('soprano part') == true) {
+          startingChord = ['C3', 'E3', 'G3'];
+        }
+        for (var cn in startingChord) {
+          final src = _noteSources[cn];
+          if (src != null) _soloud.play(src, volume: 0.45);
+        }
+      });
     }
 
-    // Optimization: separate logic from UI state
-    _songTimer = Timer.periodic(const Duration(milliseconds: songStepMs), (timer) {
-       _songTimeMs += songStepMs;
-       
-       if (sequences.isNotEmpty) {
-          final currentBeat = (_songTimeMs / _beatDurationMs).floor();
-          final audioTriggerBeat = currentBeat + 2; // Play sound 1 full beat early (2 array indices)
-          final notes = sequences.first.notes;
-          
-          // Play audio when entering a new beat block
-          if (audioTriggerBeat > _lastPlayedBeat && audioTriggerBeat >= 0 && audioTriggerBeat < notes.length) {
-           _lastPlayedBeat = audioTriggerBeat;
-           final noteName = notes[audioTriggerBeat];
-           final chordNotes = _chordBeats[audioTriggerBeat];
+    _songTimer = Timer.periodic(const Duration(milliseconds: stepMs), (timer) {
+      // --- 1. Pitch smoothing (was separate 10ms timer) ---
+      if (_currentMidiVal != null) {
+        _smoothedMidiVal = _smoothedMidiVal == null
+            ? _currentMidiVal
+            : _smoothedMidiVal! + (_currentMidiVal! - _smoothedMidiVal!) * 0.6;
+      } else {
+        _smoothedMidiVal = null;
+      }
+      // Circular write into fixed-size buffer
+      _pitchBuffer[_pitchWriteIdx] = PitchFrame(_smoothedMidiVal, _songTimeMs);
+      _pitchWriteIdx = (_pitchWriteIdx + 1) % 200;
+      if (_pitchCount < 200) _pitchCount++;
 
-           // Fire audio on next microtask to avoid blocking the timer callback
-           if (_audioInitialized) {
-              Future.microtask(() {
-                 // Chord notes on rest bars
-                 if (chordNotes != null) {
-                    for (var cn in chordNotes) {
-                       final src = _noteSources[cn];
-                       if (src != null) _soloud.play(src, volume: 0.45);
-                    }
-                 }
-                 // Melody note
-                 if (noteName != '-' && noteName != '=') {
-                    final src = _noteSources[noteName];
-                    if (src != null) _soloud.play(src, volume: 0.8);
-                 }
-              });
-           }
-        }
-     }
-       
-       _checkScore();
-       
-       if (sequences.isNotEmpty) {
-          final totalBeats = sequences.first.notes.length;
-          final totalTimeMs = (totalBeats + 2) * _beatDurationMs;
-          if (_songTimeMs >= totalTimeMs && !_isFinished) {
-             setState(() {
-                _stopPlaying();
-                _isFinished = true;
-             });
-             _onLessonComplete();
+      // --- 2. Song advance ---
+      _songTimeMs += stepMs;
+
+      if (sequences.isNotEmpty) {
+        final currentBeat = (_songTimeMs / _beatDurationMs).floor();
+        final audioTriggerBeat = currentBeat + 2;
+        final notes = sequences.first.notes;
+
+        // Audio trigger
+        if (audioTriggerBeat > _lastPlayedBeat && audioTriggerBeat >= 0 && audioTriggerBeat < notes.length) {
+          _lastPlayedBeat = audioTriggerBeat;
+          final noteName = notes[audioTriggerBeat];
+          final chordNotes = _chordBeats[audioTriggerBeat];
+          if (_audioInitialized) {
+            Future.microtask(() {
+              if (chordNotes != null) {
+                for (var cn in chordNotes) {
+                  final src = _noteSources[cn];
+                  if (src != null) _soloud.play(src, volume: 0.45);
+                }
+              }
+              if (noteName != '-' && noteName != '=') {
+                final src = _noteSources[noteName];
+                if (src != null) _soloud.play(src, volume: 0.8);
+              }
+            });
           }
-       }
-       
-       // Note: we don't need setState() here because _repaintController 
-       // automatically triggers a rebuild for the graph every frame anyway.
+        }
+      }
+
+      // --- 3. Score check ---
+      _checkScore();
+
+      // --- 4. End-of-song ---
+      if (sequences.isNotEmpty) {
+        final totalBeats = sequences.first.notes.length;
+        final totalTimeMs = (totalBeats + 2) * _beatDurationMs;
+        if (_songTimeMs >= totalTimeMs && !_isFinished) {
+          setState(() {
+            _stopPlaying();
+            _isFinished = true;
+          });
+          _onLessonComplete();
+        }
+      }
     });
   }
   
   // Scoring: note is correct when >=45% of its frames are on-pitch
   final Set<int> _scoredBeats = {};
-  final Map<int, int> _noteHitFrames = {};   // note start index → correct frame count
-  final Map<int, int> _noteTotalFrames = {}; // note start index → total frame count seen
-  
+  final Map<int, int> _noteHitFrames = {};
+  final Map<int, int> _noteTotalFrames = {};
+
   void _checkScore() {
-      if (_smoothedMidiVal == null || sequences.isEmpty) return;
+    if (_smoothedMidiVal == null || sequences.isEmpty) return;
 
-      final currentBeat = _songTimeMs / _beatDurationMs;
-      final playheadBeat = currentBeat - 1.0;
-      final beatIndex = playheadBeat.floor();
+    final currentBeat = _songTimeMs / _beatDurationMs;
+    final beatIndex = (currentBeat - 1.0).floor();
+    if (beatIndex < 0) return;
 
-      final notes = sequences.first.notes;
-      if (beatIndex >= 0 && beatIndex < notes.length) {
-          String targetNoteName = notes[beatIndex] as String;
-          int noteStartIndex = beatIndex;
+    // O(1) lookup via precomputed map
+    final int? noteStart = _noteStartMap[beatIndex];
+    if (noteStart == null) return; // rest or out of range
+    if (_scoredBeats.contains(noteStart)) return;
 
-          // Trace back over hold markers to find note start
-          while (targetNoteName == '=' && noteStartIndex > 0) {
-              noteStartIndex--;
-              targetNoteName = notes[noteStartIndex] as String;
-          }
+    final int noteLen = _noteLengthMap[noteStart] ?? 1;
+    final int targetMidi = _noteMidiMap[noteStart] ?? 0;
+    // totalFrames based on 16ms step
+    final int totalFramesExpected = (noteLen * _beatDurationMs / 16).round().clamp(1, 999);
 
-          if (targetNoteName == '-' || targetNoteName == '=') return;
+    _noteTotalFrames[noteStart] = (_noteTotalFrames[noteStart] ?? 0) + 1;
+    if ((_smoothedMidiVal! - targetMidi).abs() <= 2.5) {
+      _noteHitFrames[noteStart] = (_noteHitFrames[noteStart] ?? 0) + 1;
+    }
 
-          // Count total note length (in half-beats)
-          int noteLengthBeats = 1;
-          int j = noteStartIndex + 1;
-          while (j < notes.length && notes[j] == '=') { noteLengthBeats++; j++; }
-
-          // Total frames expected for this note (8ms polling)
-          final int totalFramesExpected = (noteLengthBeats * _beatDurationMs / 8).round();
-
-          // If already scored, skip
-          if (_scoredBeats.contains(noteStartIndex)) return;
-
-          // Accumulate frame counts
-          _noteTotalFrames[noteStartIndex] = (_noteTotalFrames[noteStartIndex] ?? 0) + 1;
-          final int targetMidi = _nameToMidi(targetNoteName);
-          if ((_smoothedMidiVal! - targetMidi).abs() <= 2.5) {
-              _noteHitFrames[noteStartIndex] = (_noteHitFrames[noteStartIndex] ?? 0) + 1;
-          }
-
-          // Score when >=45% of total expected frames for this note have been hit
-          final int hitFrames = _noteHitFrames[noteStartIndex] ?? 0;
-          if (hitFrames >= totalFramesExpected * 0.45) {
-              _scoredBeats.add(noteStartIndex);
-              _score += 1;
-          }
-      }
+    if ((_noteHitFrames[noteStart] ?? 0) >= totalFramesExpected * 0.45) {
+      _scoredBeats.add(noteStart);
+      _score += 1;
+    }
   }
   
   /// Parse a note name (with or without octave) to MIDI number.
@@ -782,8 +819,6 @@ class _VocalLessonPerformScreenState extends State<VocalLessonPerformScreen> wit
   }
 
   void _stopTimer() {
-    _pollingTimer?.cancel();
-    _pollingTimer = null;
     _songTimer?.cancel();
     _songTimer = null;
   }
@@ -844,7 +879,9 @@ class _VocalLessonPerformScreenState extends State<VocalLessonPerformScreen> wit
                 return CustomPaint(
                   painter: VocalGraphPainter(
                     centerMidi: _currentCenterMidi,
-                    pitchHistory: _pitchHistory,
+                    pitchBuffer: _pitchBuffer,
+                    pitchWriteIdx: _pitchWriteIdx,
+                    pitchCount: _pitchCount,
                     isPlaying: _isPlaying,
                     noteNames: _noteNames,
                     songTimeMs: _songTimeMs,
@@ -890,8 +927,11 @@ class _VocalLessonPerformScreenState extends State<VocalLessonPerformScreen> wit
               child: AnimatedBuilder(
                 animation: _repaintController,
                 builder: (context, child) {
-                  // Look ahead by 1.5 half-beats (approx 1 beat) so lyrics appear before the note
-                  int currentHalfBeat = ((_songTimeMs / _beatDurationMs) + 1.5).floor();
+                  // Look ahead by ~600ms so lyrics appear before the note (adjustable by tempo)
+                  // For 250ms half-beats (Level 5), this is ~2.4 half-beats.
+                  // For 300ms half-beats (Level 4), this is ~2.0 half-beats.
+                  int lookaheadHalfBeats = (600 / _beatDurationMs).ceil();
+                  int currentHalfBeat = ((_songTimeMs / _beatDurationMs) + lookaheadHalfBeats).floor();
                   String currentLyric = '';
                   final lyricsList = sequences.first.lyrics!;
                   
@@ -1116,7 +1156,9 @@ class _VocalLessonEndScreen extends StatelessWidget {
 // =============================================
 class VocalGraphPainter extends CustomPainter {
   final double centerMidi;
-  final List<PitchFrame> pitchHistory;
+  final List<PitchFrame?> pitchBuffer;
+  final int pitchWriteIdx;
+  final int pitchCount;
   final bool isPlaying;
   final List<String> noteNames;
   final double songTimeMs;
@@ -1130,7 +1172,9 @@ class VocalGraphPainter extends CustomPainter {
 
   VocalGraphPainter({
     required this.centerMidi,
-    required this.pitchHistory,
+    required this.pitchBuffer,
+    required this.pitchWriteIdx,
+    required this.pitchCount,
     required this.isPlaying,
     required this.noteNames,
     required this.songTimeMs,
@@ -1351,20 +1395,16 @@ class VocalGraphPainter extends CustomPainter {
 
     final List<List<Offset>> segments = [];
     List<Offset> currentSegment = [];
-    
-    final int pointCount = pitchHistory.length;
 
-    for (int i = 0; i < pointCount; i++) {
-      final PitchFrame frame = pitchHistory[i];
+    // Iterate circular buffer in chronological order (oldest → newest)
+    final int startIdx = pitchCount < 200 ? 0 : pitchWriteIdx;
+    for (int i = 0; i < pitchCount; i++) {
+      final PitchFrame? frame = pitchBuffer[(startIdx + i) % 200];
+      if (frame == null) continue;
       if (frame.midi != null) {
         final double y = midiToY(frame.midi!);
-        
-        // Calculate exact horizontal position based on the time difference
-        // offset from the current playback time.
-        // 1 beatWidth happens in 1 beatDurationMs.
         double offsetMs = songTimeMs - frame.timeMs;
         double x = playheadX - ((offsetMs / beatDurationMs) * beatWidth);
-        
         currentSegment.add(Offset(x, y));
       } else {
         if (currentSegment.isNotEmpty) {

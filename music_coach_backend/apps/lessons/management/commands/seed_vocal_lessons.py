@@ -200,8 +200,11 @@ class Command(BaseCommand):
             module4.save()
         module5, _ = Module.objects.update_or_create(
             order=5, instrument=vocals_instrument,
-            defaults={'title': "Level 5: Singing on 'mum'", 'description': 'Vocal Mastery'}
+            defaults={'title': "Level 5: Joy to the World", 'description': 'Vocal Mastery'}
         )
+        if module5.title != "Level 5: Joy to the World":
+            module5.title = "Level 5: Joy to the World"
+            module5.save()
 
         # Create Lessons for Level 3 (Same patterns as Level 2 but for "Aa...")
         l3_titles = [
@@ -570,6 +573,125 @@ class Command(BaseCommand):
             self.stdout.write(f'Cleared {deleted_count} old sequence(s) from Level 5 Lesson 1')
         else:
             self.stdout.write(self.style.SUCCESS(f'Created lesson: {lesson5_1.title}'))
+
+        # Create Lesson 2 for Level 5: Soprano Part (Joy to the World)
+        lesson5_2, created = Lesson.objects.get_or_create(
+            module=module5,
+            order=2,
+            defaults={'title': "Soprano Part: Learn it solo", 'lesson_type': 'practice'}
+        )
+        if not created:
+            lesson5_2.title = "Soprano Part: Learn it solo"
+            lesson5_2.save()
+            deleted_count = lesson5_2.sequences.all().delete()[0]
+            self.stdout.write(f'Cleared {deleted_count} old sequence(s) from Level 5 Lesson 2')
+        else:
+            self.stdout.write(self.style.SUCCESS(f'Created lesson: {lesson5_2.title}'))
+
+        # Joy to the World soprano melody — C major, 4/4
+        # Half-beat resolution: each element = 0.5 beat
+        # 20 bars × 8 half-beats = 160 half-beats total
+        joy_to_world_notes = [
+            # Bar 1: Lead-in rest (1 bar = 8 half-beats)
+            '-', '-', '-', '-', '-', '-', '-', '-',
+            # Bar 2: "Joy to the world" — C4(half), B3(dotted-q), A3(eighth)
+            'C4', '=', '=', '=', 'B3', '=', '=', 'A3',
+            # Bar 3: "World!" — G3(dotted-half), F3(quarter)
+            'G3', '=', '=', '=', '=', '=', 'F3', '=',
+            # Bar 4: "The Lord" — E3(half), D3(half)
+            'E3', '=', '=', '=', 'D3', '=', '=', '=',
+            # Bar 5: "is come!" — C3(half), G3(quarter) pickup
+            'C3', '=', '=', '=', '=', '=', 'G3', '=',
+            # Bar 6: "Let earth" — A3(half), A3(half)
+            'A3', '=', '=', '=', '=', '=', 'A3', '=',
+            # Bar 7: "receive" — B3(half), B3(half)
+            'B3', '=', '=', '=', '=', '=', 'B3', '=',
+            # Bar 8: "her King" — C4(half), C4(half)
+            'C4', '=', '=', '=', '=', '=', 'C4', '=',
+            # Bar 9: "Let every heart" — C4, B3, A3, G3 (quarters descending)
+            'C4', '=', 'B3', '=', 'A3', '=', 'G3', '=',
+            # Bar 10: "prepare him room" — G3(half+passing F3), E3(q), C4(q)
+            'G3', '=', '=', 'F3', 'E3', '=', 'C4', '=',
+            # Bar 11: "And heaven" — C4, B3, A3, G3 (quarters descending)
+            'C4', '=', 'B3', '=', 'A3', '=', 'G3', '=',
+            # Bar 12: "and nature" — G3(half+passing F3), E3(half)
+            'G3', '=', '=', 'F3', 'E3', '=', 'E3', '=',
+            # Bar 13: "sing" — E3(q×4), pickup F3
+            'E3', '=', 'E3', '=', 'E3', '=', 'E3', 'F3',
+            # Bar 14: "And heaven" — G3(dotted-half), G3(q), pickup F3
+            'G3', '=', '=', '=', '=', '=', 'G3', 'F3',
+            # Bar 15: "and nature" — D3(q×4), pickup E3
+            'D3', '=', 'D3', '=', 'D3', '=', 'D3', 'E3',
+            # Bar 16: "sing, And heaven" — F3(half), F3(q), E3(e), D3(e)
+            'F3', '=', '=', '=', 'F3', '=', 'E3', 'D3',
+            # Bar 17: "and nature" — C3(q), C4(half), A3(q)
+            'C3', '=', 'C4', '=', '=', '=', 'A3', '=',
+            # Bar 18: "sing" — G3(half+passing F3), E3(q), F3(q)
+            'G3', '=', '=', 'F3', 'E3', '=', 'F3', '=',
+            # Bar 19: "and nature sing" — E3(half), D3(half)
+            'E3', '=', '=', '=', 'D3', '=', '=', '=',
+            # Bar 20: Final hold — C3(whole)
+            'C3', '=', '=', '=', '=', '=', '=', '=',
+        ]
+
+        joy_to_world_lyrics = [
+            # Bar 1: lead-in
+            '', '', '', '', '', '', '', '',
+            # Bar 2-3: "Joy to the world"
+            'Joy to the world', 'Joy to the world', 'Joy to the world', 'Joy to the world',
+            'Joy to the world', 'Joy to the world', 'Joy to the world', 'Joy to the world',
+            'Joy to the world', 'Joy to the world', 'Joy to the world', 'Joy to the world',
+            'Joy to the world', 'Joy to the world', 'Joy to the world', 'Joy to the world',
+            # Bar 4-5: "The Lord is come"
+            'The Lord is come', 'The Lord is come', 'The Lord is come', 'The Lord is come',
+            'The Lord is come', 'The Lord is come', 'The Lord is come', 'The Lord is come',
+            'The Lord is come', 'The Lord is come', 'The Lord is come', 'The Lord is come',
+            'The Lord is come', 'The Lord is come', 'The Lord is come', 'The Lord is come',
+            # Bar 6-8: "Let earth receive her King"
+            'Let earth receive', 'Let earth receive', 'Let earth receive', 'Let earth receive',
+            'Let earth receive', 'Let earth receive', 'Let earth receive', 'Let earth receive',
+            'Let earth receive', 'Let earth receive', 'Let earth receive', 'Let earth receive',
+            'Let earth receive', 'Let earth receive', 'Let earth receive', 'Let earth receive',
+            'her King', 'her King', 'her King', 'her King',
+            'her King', 'her King', 'her King', 'her King',
+            # Bar 9-10: "Let every heart prepare him room"
+            'Let every heart', 'Let every heart', 'Let every heart', 'Let every heart',
+            'Let every heart', 'Let every heart', 'Let every heart', 'Let every heart',
+            'prepare him room', 'prepare him room', 'prepare him room', 'prepare him room',
+            'prepare him room', 'prepare him room', 'prepare him room', 'prepare him room',
+            'Let every heart', 'Let every heart', 'Let every heart', 'Let every heart',
+            'Let every heart', 'Let every heart', 'Let every heart', 'Let every heart',
+            'prepare him room', 'prepare him room', 'prepare him room', 'prepare him room',
+            'prepare him room', 'prepare him room', 'prepare him room', 'prepare him room',
+            # Bar 11-13: "And heaven and nature sing" (first)
+            'And heaven and nature', 'And heaven and nature', 'And heaven and nature', 'And heaven and nature',
+            'And heaven and nature', 'And heaven and nature', 'And heaven and nature', 'And heaven and nature',
+            'sing', 'sing', 'sing', 'sing', 'sing', 'sing', 'sing', 'sing',
+            # Bar 14-16: "And heaven and nature sing" (second)
+            'And heaven and nature', 'And heaven and nature', 'And heaven and nature', 'And heaven and nature',
+            'And heaven and nature', 'And heaven and nature', 'And heaven and nature', 'And heaven and nature',
+            'sing', 'sing', 'sing', 'sing', 'sing', 'sing', 'sing', 'sing',
+            # Bar 17-20: "And heaven and nature sing" (third, final)
+            'And heaven and nature', 'And heaven and nature', 'And heaven and nature', 'And heaven and nature',
+            'And heaven and nature', 'And heaven and nature', 'And heaven and nature', 'And heaven and nature',
+            'And heaven and nature', 'And heaven and nature', 'And heaven and nature', 'And heaven and nature',
+            'And heaven and nature', 'And heaven and nature', 'And heaven and nature', 'And heaven and nature',
+            'And heaven and nature', 'And heaven and nature', 'And heaven and nature', 'And heaven and nature',
+            'sing', 'sing', 'sing', 'sing','sing', 'sing', 'sing', 'sing',
+            'sing', 'sing', 'sing', 'sing','sing', 'sing', 'sing', 'sing',
+        ]
+
+        PracticeSequence.objects.create(
+            lesson=lesson5_2,
+            order=1,
+            sequence_type='perform',
+            notes=joy_to_world_notes,
+            lyrics=joy_to_world_lyrics,
+            time_signature='4/4',
+        )
+        self.stdout.write(self.style.SUCCESS(
+            f'Created Joy to the World soprano sequence ({len(joy_to_world_notes)} half-beats)'
+        ))
 
         self.stdout.write(self.style.SUCCESS(
             "\nSuccessfully seeded vocal lessons.\n"

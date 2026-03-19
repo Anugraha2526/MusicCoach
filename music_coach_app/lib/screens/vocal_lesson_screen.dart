@@ -412,7 +412,16 @@ class _VocalLessonScreenState extends State<VocalLessonScreen>
 
                         // Jump logic: Lesson 1 of any level is always "playable" for jumping
                         final bool isJumpable = !isLevelUnlocked && placeholder.index == 0;
-                        final bool isEffectivelyPlayable = backendLesson != null && (isLevelUnlocked || isJumpable);
+                        
+                        // Check if previous lesson in the SAME module is completed
+                        bool isPrevLessonCompleted = false;
+                        if (module.id != -1 && placeholder.index > 0 && placeholder.index <= module.lessons.length) {
+                          final prevLesson = module.lessons[placeholder.index - 1];
+                          isPrevLessonCompleted = _completedLessons.contains(prevLesson.id);
+                        }
+                        
+                        final bool isEffectivelyPlayable = backendLesson != null && 
+                            (isLevelUnlocked || isJumpable || isPrevLessonCompleted || (placeholder.index == 0));
 
                         final position = _getLessonPosition(index, screenWidth, contentHeight);
                         
@@ -432,7 +441,7 @@ class _VocalLessonScreenState extends State<VocalLessonScreen>
                                 onStart: () => _onLessonStart(
                                   index, 
                                   backendLesson, 
-                                  !isLevelUnlocked, 
+                                  !isEffectivelyPlayable, // <--- Key fix: use effectively playable state
                                   isJump: isJumpable,
                                   targetLevel: placeholder.level,
                                   targetLessonIndex: placeholder.index,
