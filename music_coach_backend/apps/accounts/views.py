@@ -8,10 +8,14 @@ from .serializers import (
     ProfileSerializer,
     ChangePasswordSerializer,
     PasswordResetRequestSerializer,
+    PasswordResetRequestSerializer,
     PasswordResetConfirmSerializer,
+    AdminUserSerializer,
+    AdminUserWriteSerializer,
 )
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.permissions import IsAuthenticated
+from .permissions import IsAdminRole
 
 # For password reset OTP
 import random
@@ -254,19 +258,21 @@ class AdminDashboardStatsView(APIView):
             "weekly_lessons_data": weekly_lessons_data
         })
 
-class AdminUserListView(generics.ListAPIView):
+class AdminUserListView(generics.ListCreateAPIView):
     queryset = User.objects.all().order_by('-id')
-    permission_classes = [permissions.AllowAny] # AllowAny for simplicity during development
+    permission_classes = [IsAdminRole]
 
-    def get(self, request, *args, **kwargs):
-        users = self.get_queryset()
-        data = []
-        for u in users:
-            data.append({
-                "id": u.id,
-                "name": u.first_name + " " + u.last_name if u.first_name else u.email.split('@')[0],
-                "email": u.email,
-                "status": "Active" if u.is_active else "Inactive",
-                "lessons_completed": random.randint(5, 50) # Mock data for now
-            })
-        return Response(data)
+    def get_serializer_class(self):
+        if self.request.method == 'POST':
+            return AdminUserWriteSerializer
+        return AdminUserSerializer
+
+
+class AdminUserDetailView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = User.objects.all()
+    permission_classes = [IsAdminRole]
+
+    def get_serializer_class(self):
+        if self.request.method in ['PUT', 'PATCH']:
+            return AdminUserWriteSerializer
+        return AdminUserSerializer

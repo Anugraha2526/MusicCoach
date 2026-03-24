@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
+import api from '../api/axios';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { Users, BookOpen, LayoutGrid, Sparkles } from 'lucide-react';
 
@@ -16,7 +16,7 @@ const Dashboard = () => {
     useEffect(() => {
         const fetchStats = async () => {
             try {
-                const res = await axios.get('http://127.0.0.1:8000/api/accounts/admin/stats/');
+                const res = await api.get('accounts/admin/stats/');
                 setStats(res.data);
             } catch (err) {
                 console.error("Failed to fetch stats", err);
