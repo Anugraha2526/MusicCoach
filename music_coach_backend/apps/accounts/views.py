@@ -57,6 +57,31 @@ class LoginView(APIView):
             return Response({"message": "Login successful", "token": token})
         return Response({"error": "Invalid credentials"}, status=status.HTTP_401_UNAUTHORIZED)
 
+# -------------------- Admin Login --------------------
+class AdminLoginView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        email = request.data.get('email')
+        password = request.data.get('password')
+        user = authenticate(email=email, password=password)
+        if not user:
+            return Response({"error": "Invalid credentials"}, status=status.HTTP_401_UNAUTHORIZED)
+        if user.role != 'admin' and not user.is_staff:
+            return Response({"error": "Access denied. Admin only."}, status=status.HTTP_403_FORBIDDEN)
+        token = get_tokens_for_user(user)
+        return Response({
+            "message": "Admin login successful",
+            "token": token,
+            "user": {
+                "id": user.id,
+                "email": user.email,
+                "username": user.username,
+                "is_staff": user.is_staff,
+                "role": user.role,
+            }
+        })
+
 # -------------------- Profile --------------------
 class ProfileView(generics.RetrieveUpdateAPIView):
     serializer_class = ProfileSerializer

@@ -1,8 +1,12 @@
 import Sidebar from './Sidebar';
 import { Outlet } from 'react-router-dom';
 import { Search, Bell } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
 const Layout = () => {
+    const { user } = useAuth();
+    const initial = user ? (user.username || user.email || 'A')[0].toUpperCase() : 'A';
+
     return (
         <div className="app-container">
             <Sidebar />
@@ -14,7 +18,7 @@ const Layout = () => {
                     </div>
                     <div className="user-profile">
                         <Bell size={20} style={{ cursor: 'pointer' }} />
-                        <div className="avatar">A</div>
+                        <div className="avatar">{initial}</div>
                     </div>
                 </header>
                 <div className="page-content">

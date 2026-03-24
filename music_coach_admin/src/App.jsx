@@ -1,21 +1,35 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider } from './context/AuthContext';
 import Layout from './components/Layout';
+import ProtectedRoute from './components/ProtectedRoute';
 import Dashboard from './pages/Dashboard';
 import Users from './pages/Users';
+import Login from './pages/Login';
 
 function App() {
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<Layout />}>
-          <Route index element={<Dashboard />} />
-          <Route path="users" element={<Users />} />
-          {/* Placeholders for future pages */}
-          <Route path="lessons" element={<div style={{ padding: '20px' }}>Lessons Page Coming Soon</div>} />
-          <Route path="settings" element={<div style={{ padding: '20px' }}>Settings Page Coming Soon</div>} />
-        </Route>
-      </Routes>
-    </BrowserRouter>
+    <AuthProvider>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/login" element={<Login />} />
+          <Route
+            path="/"
+            element={
+              <ProtectedRoute>
+                <Layout />
+              </ProtectedRoute>
+            }
+          >
+            <Route index element={<Dashboard />} />
+            <Route path="users" element={<Users />} />
+            <Route path="lessons" element={<div style={{ padding: '20px' }}>Lessons Page Coming Soon</div>} />
+            <Route path="settings" element={<div style={{ padding: '20px' }}>Settings Page Coming Soon</div>} />
+          </Route>
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </BrowserRouter>
+    </AuthProvider>
   );
 }
+
 export default App;
