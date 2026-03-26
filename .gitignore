@@ -86,3 +86,7 @@ music_coach_admin/.eslintcache
 music_coach_admin/npm-debug.log*
 music_coach_admin/yarn-debug.log*
 music_coach_admin/yarn-error.log*
+
+
+
+*.md
