@@ -8,10 +8,14 @@ from .serializers import (
     ProfileSerializer,
     ChangePasswordSerializer,
     PasswordResetRequestSerializer,
+    PasswordResetRequestSerializer,
     PasswordResetConfirmSerializer,
+    AdminUserSerializer,
+    AdminUserWriteSerializer,
 )
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.permissions import IsAuthenticated
+from .permissions import IsAdminRole
 
 # For password reset OTP
 import random
@@ -56,6 +60,31 @@ class LoginView(APIView):
             token = get_tokens_for_user(user)
             return Response({"message": "Login successful", "token": token})
         return Response({"error": "Invalid credentials"}, status=status.HTTP_401_UNAUTHORIZED)
+
+# -------------------- Admin Login --------------------
+class AdminLoginView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        email = request.data.get('email')
+        password = request.data.get('password')
+        user = authenticate(email=email, password=password)
+        if not user:
+            return Response({"error": "Invalid credentials"}, status=status.HTTP_401_UNAUTHORIZED)
+        if user.role != 'admin' and not user.is_staff:
+            return Response({"error": "Access denied. Admin only."}, status=status.HTTP_403_FORBIDDEN)
+        token = get_tokens_for_user(user)
+        return Response({
+            "message": "Admin login successful",
+            "token": token,
+            "user": {
+                "id": user.id,
+                "email": user.email,
+                "username": user.username,
+                "is_staff": user.is_staff,
+                "role": user.role,
+            }
+        })
 
 # -------------------- Profile --------------------
 class ProfileView(generics.RetrieveUpdateAPIView):
@@ -169,7 +198,7 @@ import random
 
 # -------------------- Admin Dashboard --------------------
 class AdminDashboardStatsView(APIView):
-    permission_classes = [permissions.AllowAny] # AllowAny for simplicity during development
+    permission_classes = [IsAdminRole]
 
     def get(self, request):
         total_users = User.objects.count()
@@ -189,59 +218,56 @@ class AdminDashboardStatsView(APIView):
         daily_users_data = []
         for i in range(7):
             day = seven_days_ago + timedelta(days=i)
-            # Use single letter for day like 'M', 'T', 'W' etc
-            day_str = day.strftime('%a')[0] 
+            day_str = day.strftime('%a')[0]
             daily_users_data.append({
                 "name": day_str,
                 "users": daily_data_dict.get(str(day), 0)
             })
 
-        # Total completed lessons
-        total_completed = 0
-        for progress in UserProgress.objects.all():
-            total_completed += progress.completed_lessons.count()
-            
-        # Distribute over 7 days pseudorandomly, seeding with total_completed to keep it consistent
-        random.seed(total_completed + 1) # simple seed
-        weekly_lessons_data = []
-        days_names = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
-        current_day_idx = today.weekday()
-        current_week_names = [days_names[(current_day_idx - 6 + i) % 7] for i in range(7)]
+        # Total completed lessons (piano + vocal)
+        piano_completed = 0
+        vocal_completed = 0
+        for progress in UserProgress.objects.prefetch_related('completed_lessons__module__instrument').all():
+            for lesson in progress.completed_lessons.all():
+                instrument_name = lesson.module.instrument.name if lesson.module.instrument else ''
+                if 'piano' in instrument_name.lower():
+                    piano_completed += 1
+                elif 'vocal' in instrument_name.lower():
+                    vocal_completed += 1
         
-        remaining = total_completed
-        for i in range(6):
-            if remaining == 0:
-                val = 0
-            else:
-                val = int(remaining * random.uniform(0.1, 0.4))
-            weekly_lessons_data.append({"name": current_week_names[i], "lessons": val})
-            remaining -= val
-        weekly_lessons_data.append({"name": current_week_names[6], "lessons": remaining})
+        total_completed = piano_completed + vocal_completed
 
-        active_lessons = UserProgress.objects.count() # using active progress entries as mock
+        # Piano vs Vocal chart data
+        lesson_breakdown_data = [
+            {"name": "Piano", "lessons": piano_completed},
+            {"name": "Vocal", "lessons": vocal_completed},
+        ]
 
         return Response({
             "total_users": total_users,
-            "lessons_completed_this_week": total_completed,
-            "active_lessons": active_lessons,
+            "total_lessons_completed": total_completed,
+            "piano_lessons_completed": piano_completed,
+            "vocal_lessons_completed": vocal_completed,
             "new_signups_today": daily_data_dict.get(str(today), 0),
             "daily_users_data": daily_users_data,
-            "weekly_lessons_data": weekly_lessons_data
+            "lesson_breakdown_data": lesson_breakdown_data
         })
 
-class AdminUserListView(generics.ListAPIView):
+class AdminUserListView(generics.ListCreateAPIView):
     queryset = User.objects.all().order_by('-id')
-    permission_classes = [permissions.AllowAny] # AllowAny for simplicity during development
+    permission_classes = [IsAdminRole]
 
-    def get(self, request, *args, **kwargs):
-        users = self.get_queryset()
-        data = []
-        for u in users:
-            data.append({
-                "id": u.id,
-                "name": u.first_name + " " + u.last_name if u.first_name else u.email.split('@')[0],
-                "email": u.email,
-                "status": "Active" if u.is_active else "Inactive",
-                "lessons_completed": random.randint(5, 50) # Mock data for now
-            })
-        return Response(data)
+    def get_serializer_class(self):
+        if self.request.method == 'POST':
+            return AdminUserWriteSerializer
+        return AdminUserSerializer
+
+
+class AdminUserDetailView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = User.objects.all()
+    permission_classes = [IsAdminRole]
+
+    def get_serializer_class(self):
+        if self.request.method in ['PUT', 'PATCH']:
+            return AdminUserWriteSerializer
+        return AdminUserSerializer

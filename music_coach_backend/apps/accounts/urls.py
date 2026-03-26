@@ -1,8 +1,8 @@
 from django.urls import path
 from .views import (
-    RegisterView, LoginView, ProfileView, ChangePasswordView, LogoutView,
+    RegisterView, LoginView, AdminLoginView, ProfileView, ChangePasswordView, LogoutView,
     PasswordResetRequestView, PasswordResetConfirmView,
-    AdminDashboardStatsView, AdminUserListView
+    AdminDashboardStatsView, AdminUserListView, AdminUserDetailView
 )
 from rest_framework_simplejwt.views import TokenRefreshView
 
@@ -17,6 +17,8 @@ urlpatterns = [
     path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     
     # Admin Dashboard URLs
+    path('admin/login/', AdminLoginView.as_view(), name='admin-login'),
     path('admin/stats/', AdminDashboardStatsView.as_view(), name='admin-stats'),
     path('admin/users/', AdminUserListView.as_view(), name='admin-users'),
+    path('admin/users/<int:pk>/', AdminUserDetailView.as_view(), name='admin-user-detail'),
 ]

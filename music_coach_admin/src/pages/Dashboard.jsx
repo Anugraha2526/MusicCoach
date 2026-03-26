@@ -1,22 +1,23 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
-import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { Users, BookOpen, LayoutGrid, Sparkles } from 'lucide-react';
+import api from '../api/axios';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
+import { Users, BookOpen, Sparkles } from 'lucide-react';
 
 const Dashboard = () => {
     const [stats, setStats] = useState({
         total_users: 0,
-        lessons_completed_this_week: 0,
-        active_lessons: 0,
+        total_lessons_completed: 0,
+        piano_lessons_completed: 0,
+        vocal_lessons_completed: 0,
         new_signups_today: 0,
         daily_users_data: [],
-        weekly_lessons_data: []
+        lesson_breakdown_data: []
     });
 
     useEffect(() => {
         const fetchStats = async () => {
             try {
-                const res = await axios.get('http://127.0.0.1:8000/api/accounts/admin/stats/');
+                const res = await api.get('accounts/admin/stats/');
                 setStats(res.data);
             } catch (err) {
                 console.error("Failed to fetch stats", err);
@@ -27,9 +28,16 @@ const Dashboard = () => {
 
     return (
         <div>
-            <div className="page-header">
-                <h1>Welcome, Admin!</h1>
-                <p>Here's an overview of your platform's performance.</p>
+            <div className="page-header" style={{
+                marginBottom: '32px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between'
+            }}>
+                <div>
+                    <h1 style={{ margin: '0 0 8px 0', fontSize: '1.8rem', fontWeight: '700', color: 'var(--text-main)', letterSpacing: '-0.02em' }}>Welcome back, Admin</h1>
+                    <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: '1.05rem' }}>Here's what's happening on your platform today.</p>
+                </div>
             </div>
 
             <div className="stats-grid">
@@ -39,23 +47,17 @@ const Dashboard = () => {
                         <Users size={20} color="#64748b" />
                     </div>
                     <div className="stat-value">{stats.total_users.toLocaleString()}</div>
-                    <div className="stat-trend trend-up">↗ +15.8% vs last month</div>
+                    <div className="stat-trend trend-up">Registered accounts on the platform</div>
                 </div>
                 <div className="stat-card">
                     <div className="stat-header">
-                        <span>Lessons Completed This Week</span>
+                        <span>Total Lessons Completed</span>
                         <BookOpen size={20} color="#64748b" />
                     </div>
-                    <div className="stat-value">{stats.lessons_completed_this_week.toLocaleString()}</div>
-                    <div className="stat-trend trend-up">↗ +8.2% vs last month</div>
-                </div>
-                <div className="stat-card">
-                    <div className="stat-header">
-                        <span>Active Lessons</span>
-                        <LayoutGrid size={20} color="#64748b" />
+                    <div className="stat-value">{stats.total_lessons_completed.toLocaleString()}</div>
+                    <div className="stat-trend" style={{ color: '#64748b' }}>
+                        🎹 Piano: {stats.piano_lessons_completed} &nbsp;|&nbsp; 🎤 Vocal: {stats.vocal_lessons_completed}
                     </div>
-                    <div className="stat-value">{stats.active_lessons.toLocaleString()}</div>
-                    <div className="stat-trend trend-down">↘ -2.1% vs last month</div>
                 </div>
                 <div className="stat-card">
                     <div className="stat-header">
@@ -63,31 +65,35 @@ const Dashboard = () => {
                         <Sparkles size={20} color="#64748b" />
                     </div>
                     <div className="stat-value">{stats.new_signups_today.toLocaleString()}</div>
-                    <div className="stat-trend trend-up">↗ +25.0% vs last month</div>
+                    <div className="stat-trend trend-up">Users joined today</div>
                 </div>
             </div>
 
             <div className="charts-grid">
                 <div className="chart-card">
-                    <h3>Weekly Lessons Completed</h3>
-                    <ResponsiveContainer width="100%" height="85%">
-                        <LineChart data={stats.weekly_lessons_data}>
-                            <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                            <XAxis dataKey="name" axisLine={false} tickLine={false} />
-                            <YAxis hide />
-                            <Tooltip />
-                            <Line type="monotone" dataKey="lessons" stroke="#ef4444" strokeWidth={3} dot={false} />
-                        </LineChart>
-                    </ResponsiveContainer>
-                </div>
-                <div className="chart-card">
-                    <h3>New Users Daily</h3>
+                    <h3>New Users (Last 7 Days)</h3>
                     <ResponsiveContainer width="100%" height="85%">
                         <BarChart data={stats.daily_users_data}>
                             <XAxis dataKey="name" axisLine={false} tickLine={false} />
-                            <YAxis hide />
+                            <YAxis hide allowDecimals={false} />
                             <Tooltip cursor={{ fill: '#f1f5f9' }} />
-                            <Bar dataKey="users" fill="#000" radius={[4, 4, 0, 0]} />
+                            <Bar dataKey="users" fill="#2563eb" radius={[4, 4, 0, 0]} />
+                        </BarChart>
+                    </ResponsiveContainer>
+                </div>
+                <div className="chart-card">
+                    <h3>Lessons Completed by Type</h3>
+                    <ResponsiveContainer width="100%" height="85%">
+                        <BarChart data={stats.lesson_breakdown_data} layout="vertical">
+                            <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                            <XAxis type="number" hide allowDecimals={false} />
+                            <YAxis type="category" dataKey="name" axisLine={false} tickLine={false} width={50} />
+                            <Tooltip />
+                            <Bar dataKey="lessons" radius={[0, 6, 6, 0]}>
+                                {stats.lesson_breakdown_data.map((entry, index) => (
+                                    <Cell key={index} fill={index === 0 ? '#2563eb' : '#a855f7'} />
+                                ))}
+                            </Bar>
                         </BarChart>
                     </ResponsiveContainer>
                 </div>
