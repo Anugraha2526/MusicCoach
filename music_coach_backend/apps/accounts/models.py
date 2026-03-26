@@ -9,6 +9,8 @@ ROLE_CHOICES = (
 class CustomUser(AbstractUser):
     role = models.CharField(max_length=10, choices=ROLE_CHOICES, default='user')
     natural_pitch = models.FloatField(null=True, blank=True, help_text="User's natural speaking pitch in Hz")
+    current_streak = models.IntegerField(default=0)
+    last_active_date = models.DateField(null=True, blank=True)
 
     # Make email the USERNAME_FIELD for authentication
     email = models.EmailField(unique=True)  # ensure unique

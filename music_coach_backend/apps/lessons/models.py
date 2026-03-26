@@ -107,3 +107,21 @@ class UserProgress(models.Model):
 
     def __str__(self):
         return f"Progress for {self.user.username}"
+
+
+class PitchHistory(models.Model):
+    """
+    Stores the realtime pitch history session of a user.
+    """
+    from django.conf import settings
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='pitch_history')
+    duration_seconds = models.FloatField()
+    pitch_data = models.JSONField(help_text="List of midi notes representing the sang graph")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'pitch_history'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"Pitch History for {self.user.username} on {self.created_at.strftime('%Y-%m-%d %H:%M:%S')}"

@@ -86,13 +86,36 @@ class AdminLoginView(APIView):
             }
         })
 
+from datetime import date
+
 # -------------------- Profile --------------------
 class ProfileView(generics.RetrieveUpdateAPIView):
     serializer_class = ProfileSerializer
     permission_classes = [permissions.IsAuthenticated]
 
     def get_object(self):
-        return self.request.user
+        user = self.request.user
+        today = date.today()
+
+        if user.last_active_date is None:
+            user.last_active_date = today
+            user.current_streak = 1
+            user.save(update_fields=['last_active_date', 'current_streak'])
+        else:
+            diff = (today - user.last_active_date).days
+            if diff == 1:
+                user.current_streak += 1
+                user.last_active_date = today
+                user.save(update_fields=['last_active_date', 'current_streak'])
+            elif diff > 1:
+                user.current_streak = 1
+                user.last_active_date = today
+                user.save(update_fields=['last_active_date', 'current_streak'])
+            elif diff == 0 and user.current_streak == 0:
+                user.current_streak = 1
+                user.save(update_fields=['current_streak'])
+                
+        return user
 
 # -------------------- Change Password --------------------
 class ChangePasswordView(APIView):
