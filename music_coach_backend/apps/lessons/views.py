@@ -95,9 +95,14 @@ class GetProgressView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        progress, created = UserProgress.objects.get_or_create(user=request.user)
-        serializer = UserProgressSerializer(progress)
-        return Response(serializer.data)
+        progress = UserProgress.objects.filter(user=request.user).first()
+        if not progress:
+            progress = UserProgress.objects.create(user=request.user)
+        
+        # Aggregate all unique completed lesson IDs just in case there are multiple progress objects
+        from apps.lessons.models import Lesson
+        completed_ids = list(Lesson.objects.filter(completed_by__user=request.user).distinct().values_list('id', flat=True))
+        return Response({'completed_lesson_ids': completed_ids})
 
 
 class SyncProgressView(APIView):
@@ -113,7 +118,9 @@ class SyncProgressView(APIView):
         if not isinstance(lesson_ids, list):
             return Response({"error": "lesson_ids must be a list"}, status=status.HTTP_400_BAD_REQUEST)
         
-        progress, created = UserProgress.objects.get_or_create(user=request.user)
+        progress = UserProgress.objects.filter(user=request.user).first()
+        if not progress:
+            progress = UserProgress.objects.create(user=request.user)
         
         # Add the lessons to the progress
         valid_lessons = Lesson.objects.filter(id__in=lesson_ids)
@@ -123,8 +130,9 @@ class SyncProgressView(APIView):
         self._broadcast_stats()
         
         # Return updated list
-        serializer = UserProgressSerializer(progress)
-        return Response(serializer.data)
+        from apps.lessons.models import Lesson as L
+        completed_ids = list(L.objects.filter(completed_by__user=request.user).distinct().values_list('id', flat=True))
+        return Response({'completed_lesson_ids': completed_ids})
 
     def _broadcast_stats(self):
         """Compute fresh stats and push to the admin dashboard channel group."""
@@ -160,19 +168,12 @@ class SyncProgressView(APIView):
 
             piano_completed = 0
             vocal_completed = 0
-            for prog in UserProgress.objects.prefetch_related(
-                "completed_lessons__module__instrument"
-            ).all():
-                for lesson in prog.completed_lessons.all():
-                    name = (
-                        lesson.module.instrument.name
-                        if lesson.module.instrument
-                        else ""
-                    )
-                    if "piano" in name.lower():
-                        piano_completed += 1
-                    elif "vocal" in name.lower():
-                        vocal_completed += 1
+            
+            from apps.lessons.models import Lesson
+            users = User.objects.all()
+            for u in users:
+                piano_completed += Lesson.objects.filter(completed_by__user=u, module__instrument__name__icontains='piano').distinct().count()
+                vocal_completed += Lesson.objects.filter(completed_by__user=u, module__instrument__name__icontains='vocal').distinct().count()
 
             total_completed = piano_completed + vocal_completed
 
