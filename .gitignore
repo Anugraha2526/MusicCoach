@@ -79,6 +79,7 @@ Thumbs.db
 music_coach_admin/node_modules/
 music_coach_admin/dist/
 music_coach_admin/dist-ssr/
+music_coach_admin/.vite/
 music_coach_admin/*.local
 music_coach_admin/.env
 music_coach_admin/.env.*

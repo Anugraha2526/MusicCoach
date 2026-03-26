@@ -6,7 +6,13 @@ Nested serializers provide complete data in single API calls.
 """
 
 from rest_framework import serializers
-from .models import Module, Lesson, PracticeSequence
+from .models import Module, Lesson, PracticeSequence, PitchHistory
+
+class PitchHistorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PitchHistory
+        fields = ['id', 'duration_seconds', 'pitch_data', 'created_at']
+        read_only_fields = ['id', 'created_at']
 
 
 class PracticeSequenceSerializer(serializers.ModelSerializer):

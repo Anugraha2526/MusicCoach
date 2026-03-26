@@ -9,7 +9,8 @@ from .serializers import (
     ModuleSerializer, 
     LessonSerializer, 
     PracticeSequenceSerializer,
-    UserProgressSerializer
+    UserProgressSerializer,
+    PitchHistorySerializer
 )
 from rest_framework.permissions import IsAuthenticated
 
@@ -25,6 +26,39 @@ class BaseLessonsView(APIView):
             modules = modules.filter(instrument__type=instrument_type)
         serializer = ModuleSerializer(modules, many=True)
         return Response(serializer.data)
+
+
+class PitchHistoryListCreateView(APIView):
+    """
+    List user's pitch history or create a new entry.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        from .models import PitchHistory
+        history = PitchHistory.objects.filter(user=request.user)
+        serializer = PitchHistorySerializer(history, many=True)
+        return Response(serializer.data)
+
+    def post(self, request):
+        from .models import PitchHistory
+        serializer = PitchHistorySerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save(user=request.user)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+class PitchHistoryDetailView(APIView):
+    """
+    Retrieve or delete a specific pitch history.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def delete(self, request, pk):
+        from .models import PitchHistory
+        history = get_object_or_404(PitchHistory, pk=pk, user=request.user)
+        history.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class LessonDetailView(APIView):

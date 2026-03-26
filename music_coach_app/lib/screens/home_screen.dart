@@ -20,6 +20,7 @@ class _HomeScreenState extends State<HomeScreen> {
   bool isLoading = true;
   String? errorMessage;
   String? username;
+  int currentStreak = 0;
 
   // Dynamic progress maps
   Map<String, int> _totalLessonsMap = {};
@@ -55,6 +56,7 @@ class _HomeScreenState extends State<HomeScreen> {
     if (profile != null) {
       setState(() {
         username = profile['username'];
+        currentStreak = profile['current_streak'] ?? 0;
       });
     }
 
@@ -192,18 +194,18 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                         ),
                         const SizedBox(height: 8),
-                        const Text(
-                          '5',
-                          style: TextStyle(
+                        Text(
+                          currentStreak.toString(),
+                          style: const TextStyle(
                             color: Colors.white,
                             fontSize: 36,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
                         const SizedBox(height: 4),
-                        const Text(
-                          'days in a row',
-                          style: TextStyle(
+                        Text(
+                          currentStreak == 1 ? 'day in a row' : 'days in a row',
+                          style: const TextStyle(
                             color: Colors.white,
                             fontSize: 14,
                             fontWeight: FontWeight.w400,
