@@ -4,6 +4,7 @@ import Layout from './components/Layout';
 import ProtectedRoute from './components/ProtectedRoute';
 import Dashboard from './pages/Dashboard';
 import Users from './pages/Users';
+import Lessons from './pages/Lessons';
 import Login from './pages/Login';
 
 function App() {
@@ -22,7 +23,7 @@ function App() {
           >
             <Route index element={<Dashboard />} />
             <Route path="users" element={<Users />} />
-            <Route path="lessons" element={<div style={{ padding: '20px' }}>Lessons Page Coming Soon</div>} />
+            <Route path="lessons" element={<Lessons />} />
             <Route path="settings" element={<div style={{ padding: '20px' }}>Settings Page Coming Soon</div>} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />

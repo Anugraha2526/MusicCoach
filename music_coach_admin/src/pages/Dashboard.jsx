@@ -1,9 +1,13 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import api from '../api/axios';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
-import { Users, BookOpen, Sparkles } from 'lucide-react';
+import { Users, BookOpen, Sparkles, Wifi, WifiOff } from 'lucide-react';
+
+const WS_URL = 'ws://127.0.0.1:8000/ws/dashboard/';
 
 const Dashboard = () => {
+    const navigate = useNavigate();
     const [stats, setStats] = useState({
         total_users: 0,
         total_lessons_completed: 0,
@@ -13,18 +17,49 @@ const Dashboard = () => {
         daily_users_data: [],
         lesson_breakdown_data: []
     });
+    const [wsStatus, setWsStatus] = useState('connecting'); // 'connecting' | 'live' | 'disconnected'
+    const wsRef = useRef(null);
+    const reconnectTimer = useRef(null);
 
-    useEffect(() => {
-        const fetchStats = async () => {
+    const connect = useCallback(() => {
+        const token = localStorage.getItem('access_token');
+        const url = token ? `${WS_URL}?token=${token}` : WS_URL;
+        const ws = new WebSocket(url);
+        wsRef.current = ws;
+
+        ws.onopen = () => {
+            setWsStatus('live');
+            clearTimeout(reconnectTimer.current);
+        };
+
+        ws.onmessage = (event) => {
             try {
-                const res = await api.get('accounts/admin/stats/');
-                setStats(res.data);
-            } catch (err) {
-                console.error("Failed to fetch stats", err);
+                const data = JSON.parse(event.data);
+                setStats(prev => ({ ...prev, ...data }));
+            } catch (e) {
+                console.error('WS parse error', e);
             }
         };
-        fetchStats();
+
+        ws.onclose = () => {
+            setWsStatus('disconnected');
+            // Auto-reconnect after 3 seconds
+            reconnectTimer.current = setTimeout(connect, 3000);
+        };
+
+        ws.onerror = (err) => {
+            console.error('WebSocket error', err);
+            ws.close();
+        };
     }, []);
+
+    useEffect(() => {
+        connect();
+        return () => {
+            clearTimeout(reconnectTimer.current);
+            if (wsRef.current) wsRef.current.close();
+        };
+    }, [connect]);
 
     return (
         <div>
@@ -38,10 +73,19 @@ const Dashboard = () => {
                     <h1 style={{ margin: '0 0 8px 0', fontSize: '1.8rem', fontWeight: '700', color: 'var(--text-main)', letterSpacing: '-0.02em' }}>Welcome back, Admin</h1>
                     <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: '1.05rem' }}>Here's what's happening on your platform today.</p>
                 </div>
+                {/* Live indicator */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem', fontWeight: '600',
+                    color: wsStatus === 'live' ? '#22c55e' : wsStatus === 'connecting' ? '#f59e0b' : '#ef4444' }}>
+                    {wsStatus === 'live'
+                        ? <><Wifi size={16} /> LIVE</>
+                        : wsStatus === 'connecting'
+                        ? <><WifiOff size={16} /> Connecting…</>
+                        : <><WifiOff size={16} /> Reconnecting…</>}
+                </div>
             </div>
 
             <div className="stats-grid">
-                <div className="stat-card">
+                <div className="stat-card" onClick={() => navigate('/users')} style={{ cursor: 'pointer' }}>
                     <div className="stat-header">
                         <span>Total Users</span>
                         <Users size={20} color="#64748b" />
@@ -49,7 +93,7 @@ const Dashboard = () => {
                     <div className="stat-value">{stats.total_users.toLocaleString()}</div>
                     <div className="stat-trend trend-up">Registered accounts on the platform</div>
                 </div>
-                <div className="stat-card">
+                <div className="stat-card" onClick={() => navigate('/lessons')} style={{ cursor: 'pointer' }}>
                     <div className="stat-header">
                         <span>Total Lessons Completed</span>
                         <BookOpen size={20} color="#64748b" />
@@ -59,7 +103,7 @@ const Dashboard = () => {
                         🎹 Piano: {stats.piano_lessons_completed} &nbsp;|&nbsp; 🎤 Vocal: {stats.vocal_lessons_completed}
                     </div>
                 </div>
-                <div className="stat-card">
+                <div className="stat-card" onClick={() => navigate('/users')} style={{ cursor: 'pointer' }}>
                     <div className="stat-header">
                         <span>New Signups Today</span>
                         <Sparkles size={20} color="#64748b" />

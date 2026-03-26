@@ -289,28 +289,52 @@ body {
 .table-search select,
 .table-search input {
   border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 6px 10px;
+  border-radius: 8px;
+  padding: 8px 14px;
   outline: none;
+  font-size: 0.9rem;
+  background-color: var(--surface);
+  transition: all 0.2s ease;
+  color: var(--text-main);
+}
+
+.table-search select:focus,
+.table-search input:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
 }
 
 table {
   width: 100%;
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
 }
 
 th,
 td {
-  padding: 15px 20px;
+  padding: 16px 20px;
   text-align: left;
   border-bottom: 1px solid var(--border);
-  font-size: 0.9rem;
+  font-size: 0.92rem;
+  color: var(--text-main);
 }
 
 th {
   color: var(--text-muted);
-  font-weight: 500;
-  background: #f8fafc;
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  letter-spacing: 0.05em;
+  background: transparent;
+  border-bottom: 2px solid var(--border);
+}
+
+tr:hover td {
+  background-color: #f8fafc;
+}
+
+tr:last-child td {
+  border-bottom: none;
 }
 
 .status-badge {
@@ -369,29 +393,45 @@ th {
 }
 
 .btn-primary {
-  background: var(--primary);
+  background: linear-gradient(135deg, var(--primary) 0%, #6366f1 100%);
   color: white;
   border: none;
-  padding: 8px 16px;
-  border-radius: 6px;
+  padding: 9px 18px;
+  border-radius: 8px;
   cursor: pointer;
-  font-weight: 500;
+  font-weight: 600;
+  font-size: 0.9rem;
+  box-shadow: 0 4px 6px -1px rgba(79, 70, 229, 0.2);
+  transition: all 0.2s ease;
 }
 
 .btn-primary:hover {
-  background: var(--primary-hover);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 8px -1px rgba(79, 70, 229, 0.3);
+}
+
+.btn-primary:active {
+  transform: translateY(0);
 }
 
 .btn-outline {
   background: transparent;
   border: 1px solid var(--border);
-  padding: 8px 16px;
-  border-radius: 6px;
+  color: var(--text-main);
+  padding: 9px 18px;
+  border-radius: 8px;
   cursor: pointer;
-  font-weight: 500;
+  font-weight: 600;
+  font-size: 0.9rem;
   display: flex;
   align-items: center;
   gap: 8px;
+  transition: all 0.2s ease;
+}
+
+.btn-outline:hover {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
 }
 
 /* -------- Login Page -------- */
@@ -624,11 +664,17 @@ th {
 
 .modal-content {
   background: var(--surface);
-  padding: 30px;
-  border-radius: 12px;
+  padding: 36px 40px;
+  border-radius: 20px;
   width: 100%;
-  max-width: 500px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+  max-width: 540px;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  animation: slideUpModal 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes slideUpModal {
+  from { opacity: 0; transform: translateY(20px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 .modal-content h2 {
@@ -640,16 +686,48 @@ th {
 .modal-form {
   display: flex;
   flex-direction: column;
-  gap: 15px;
+  gap: 20px;
 }
 
 .form-row {
   display: flex;
-  gap: 15px;
+  gap: 20px;
 }
 
 .form-row>.form-group {
   flex: 1;
+}
+
+.modal-form .form-group label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-main);
+  margin-bottom: 6px;
+  display: block;
+}
+
+.modal-form .form-group input,
+.modal-form .form-group select,
+.modal-form .form-group textarea {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 0.95rem;
+  outline: none;
+  font-family: inherit;
+  transition: all 0.2s ease;
+  background: var(--bg-color);
+  color: var(--text-main);
+  box-sizing: border-box;
+}
+
+.modal-form .form-group input:focus,
+.modal-form .form-group select:focus,
+.modal-form .form-group textarea:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.12);
+  background: var(--surface);
 }
 
 .helper-text {
