@@ -62,16 +62,18 @@ class AdminUserSerializer(serializers.ModelSerializer):
         ]
 
     def get_piano_lessons_completed(self, obj):
-        progress = obj.progress.first()
-        if progress:
-            return progress.completed_lessons.filter(module__instrument__name__icontains='piano').count()
-        return 0
+        from apps.lessons.models import Lesson
+        return Lesson.objects.filter(
+            completed_by__user=obj, 
+            module__instrument__name__icontains='piano'
+        ).distinct().count()
 
     def get_vocal_lessons_completed(self, obj):
-        progress = obj.progress.first()
-        if progress:
-            return progress.completed_lessons.filter(module__instrument__name__icontains='vocal').count()
-        return 0
+        from apps.lessons.models import Lesson
+        return Lesson.objects.filter(
+            completed_by__user=obj, 
+            module__instrument__name__icontains='vocal'
+        ).distinct().count()
 
 
 class AdminUserWriteSerializer(serializers.ModelSerializer):

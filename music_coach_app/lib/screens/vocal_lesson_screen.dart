@@ -423,6 +423,8 @@ class _VocalLessonScreenState extends State<VocalLessonScreen>
                         final bool isEffectivelyPlayable = backendLesson != null && 
                             (isLevelUnlocked || isJumpable || isPrevLessonCompleted || (placeholder.index == 0));
 
+                        final bool isCompleted = backendLesson != null && _completedLessons.contains(backendLesson.id);
+
                         final position = _getLessonPosition(index, screenWidth, contentHeight);
                         
                         return Positioned(
@@ -436,6 +438,7 @@ class _VocalLessonScreenState extends State<VocalLessonScreen>
                                 lessonTitle: backendLesson?.title ?? '?',
                                 vocalColor: _vocalColor,
                                 isAvailable: isEffectivelyPlayable,
+                                isCompleted: isCompleted,
                                 isSelected: selectedLessonIndex == index,
                                 onTap: () => _onLessonSelect(index),
                                   onStart: () => _onLessonStart(
@@ -505,6 +508,7 @@ class _AnimatedLessonButton extends StatefulWidget {
   final String lessonTitle;
   final Color vocalColor;
   final bool isAvailable;
+  final bool isCompleted;
   final bool isSelected;
   final VoidCallback onTap;
   final VoidCallback onStart;
@@ -513,6 +517,7 @@ class _AnimatedLessonButton extends StatefulWidget {
     required this.lessonTitle,
     required this.vocalColor,
     required this.isAvailable,
+    this.isCompleted = false,
     required this.isSelected,
     required this.onTap,
     required this.onStart,
@@ -597,7 +602,7 @@ class _AnimatedLessonButtonState extends State<_AnimatedLessonButton> with Singl
                       : [],
                 ),
                 child: Icon(
-                  widget.isAvailable ? Icons.music_note : Icons.lock_outline,
+                  widget.isCompleted ? Icons.check : (widget.isAvailable ? Icons.music_note : Icons.lock_outline),
                   color: widget.isSelected && widget.isAvailable ? widget.vocalColor : Colors.white,
                   size: 28,
                 ),
