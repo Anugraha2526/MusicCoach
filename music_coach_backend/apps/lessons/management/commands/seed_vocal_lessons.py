@@ -900,9 +900,138 @@ class Command(BaseCommand):
             f'Created Joy to the World bass sequence ({len(joy_to_world_bass_notes)} half-beats)'
         ))
 
+        self.stdout.write('Generating dynamic vocal sequences for Level 1 and 2...')
+        
+        # Helper to map MIDI to note names
+        chromatic_names = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
+        def midi_to_note_name(midi):
+            note_index = midi % 12
+            octave = (midi // 12) - 1
+            return f"{chromatic_names[note_index]}{octave}"
+
+        def generate_vocal_notes(start_midi, lesson_title, target_level):
+            scale_intervals = [0, 2, 4, 5, 7, 9, 11, 12]
+            basic_pattern = [0, 1, 2, 3, 4, 5, 6, 7, 7, 6, 5, 4, 3, 2, 1, 0]
+            all_notes = []
+            l_title = lesson_title.lower()
+            
+            is_swifter = 'swifter' in l_title
+            is_pacing_up = 'pacing up' in l_title
+            is_lesson4 = 'double' in l_title
+            is_chug_along = 'chug' in l_title
+            is_l2l1 = 'wave' in l_title or '12321' in l_title
+            is_l2l2 = 'further' in l_title or '123454321' in l_title
+            is_l2l3 = 'jumps' in l_title or '15151' in l_title
+            is_l2l4 = 'ascent (12345)' in l_title or '(12345)' in l_title
+            is_l2l5 = 'descent (54321)' in l_title or '(54321)' in l_title
+            is_mum = 'mum' in l_title
+            
+            if is_mum:
+                all_notes.extend(['-'] * 4)
+            else:
+                all_notes.extend(['-'] * 8)
+                
+            if is_mum:
+                is_level5_mum = target_level == 5
+                line_offsets = [0, 1, 2, 3, 4, 5, 4, 3, 2, 1, 0]
+                if is_level5_mum:
+                    l5_mum_semitones = [7, 4, 7, 4, 7, 5, 4, 2, 0]
+                    for line in line_offsets:
+                        root = start_midi + line
+                        for p, semitone in enumerate(l5_mum_semitones):
+                            midi = root + semitone
+                            name = midi_to_note_name(midi)
+                            if p < len(l5_mum_semitones) - 1:
+                                all_notes.extend([name, '='])
+                            else:
+                                all_notes.extend([name, '=', '=', '='])
+                        all_notes.extend(['-', '-', '-', '-'])
+                else:
+                    mum_scale_intervals = [0, 2, 4, 5, 7]
+                    mum_pattern = [0, 1, 2, 3, 4, 3, 2, 1, 0]
+                    for line in line_offsets:
+                        root = start_midi + line
+                        for p, p_val in enumerate(mum_pattern):
+                            midi = root + mum_scale_intervals[p_val]
+                            name = midi_to_note_name(midi)
+                            if p < len(mum_pattern) - 1:
+                                all_notes.extend([name, '='])
+                            else:
+                                all_notes.extend([name, '=', '=', '='])
+                        all_notes.extend(['-', '-', '-', '-'])
+            elif is_l2l1:
+                for g in range(8):
+                    root_midi = start_midi + scale_intervals[g]
+                    maj_pattern = [0, 2, 4, 2, 0]
+                    for offset in maj_pattern:
+                        all_notes.extend([midi_to_note_name(root_midi + offset), '='])
+                    all_notes.extend(['-'] * 6)
+            elif is_l2l2:
+                for g in range(5):
+                    root_midi = start_midi + scale_intervals[g]
+                    maj_pattern = [0, 2, 4, 5, 7, 5, 4, 2, 0]
+                    for offset in maj_pattern:
+                        all_notes.extend([midi_to_note_name(root_midi + offset), '='])
+                    all_notes.extend(['-'] * 6)
+            elif is_l2l3:
+                for g in range(5):
+                    root_midi = start_midi + scale_intervals[g]
+                    maj_pattern = [0, 7, 0, 7, 0]
+                    for offset in maj_pattern:
+                        all_notes.extend([midi_to_note_name(root_midi + offset), '='])
+                    all_notes.extend(['-'] * 6)
+            elif is_l2l4:
+                for g in range(5):
+                    root_midi = start_midi + scale_intervals[g]
+                    maj_pattern = [0, 2, 4, 5, 7]
+                    for offset in maj_pattern:
+                        all_notes.extend([midi_to_note_name(root_midi + offset), '='])
+                    all_notes.extend(['-'] * 6)
+            elif is_l2l5:
+                for g in range(5):
+                    root_midi = start_midi + scale_intervals[g]
+                    maj_pattern = [7, 5, 4, 2, 0]
+                    for offset in maj_pattern:
+                        all_notes.extend([midi_to_note_name(root_midi + offset), '='])
+                    all_notes.extend(['-'] * 6)
+            elif is_chug_along:
+                l5_pattern = [0, 1, 2, 3, 4, 4, 3, 2, 1, 0]
+                for p_val in l5_pattern:
+                    name = midi_to_note_name(start_midi + scale_intervals[p_val])
+                    all_notes.extend([name, '=', '-', '-', name, '=', '-', '-', name, '=', name, '=', name, '=', '-', '-'])
+            elif is_lesson4:
+                l4_pattern = [0, 1, 2, 3, 4, 4, 3, 2, 1, 0]
+                for p_val in l4_pattern:
+                    name = midi_to_note_name(start_midi + scale_intervals[p_val])
+                    for _ in range(2):
+                        all_notes.extend([name, '=', '-', '-'])
+            else:
+                for p_val in basic_pattern:
+                    name = midi_to_note_name(start_midi + scale_intervals[p_val])
+                    if is_pacing_up:
+                        all_notes.extend([name, '='])
+                    elif is_swifter:
+                        all_notes.extend([name, '=', '=', '='])
+                    else:
+                        all_notes.extend([name, '=', '=', '=', '=', '=', '=', '-'])
+            return all_notes
+
+        vocal_modules = Module.objects.filter(instrument__type='vocals')
+        for mod in vocal_modules:
+            target_level = 1
+            if 'Level' in mod.title:
+                try: target_level = int(mod.title.split('Level ')[1].split(':')[0])
+                except: pass
+            for lesson in mod.lessons.all():
+                if lesson.sequences.count() == 0:
+                    notes = generate_vocal_notes(48, lesson.title, target_level)
+                    PracticeSequence.objects.create(
+                        lesson=lesson, sequence_type='perform', order=1,
+                        notes=notes, lyrics=None, time_signature='4/4'
+                    )
+
         self.stdout.write(self.style.SUCCESS(
             "\nSuccessfully seeded vocal lessons.\n"
-            "Note: sequences are generated dynamically on the frontend "
-            "based on each user's natural pitch."
+            "Note: Sequence generation is now written directly into the DB for full CRUD capability!"
         ))
 

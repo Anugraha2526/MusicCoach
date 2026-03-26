@@ -1089,8 +1089,8 @@ class _InteractivePianoLessonScreenState extends State<InteractivePianoLessonScr
     }
   }
 
-  void _showCompletionScreen() {
-    ProgressService.markLessonCompleted(
+  Future<void> _showCompletionScreen() async {
+    await ProgressService.markLessonCompleted(
       widget.lessonId,
       allModules: widget.allModules,
       targetLevel: widget.targetLevel,
@@ -1098,14 +1098,11 @@ class _InteractivePianoLessonScreenState extends State<InteractivePianoLessonScr
     );
     
     // If we have level info, it means we can potentially unlock previous levels
-    // Since targetLevel is now always passed, we need a separate way to check if it's a jump.
-    // However, unlockLessonsUpTo is safe to call even for non-jumps because it only unlocks
-    // levels strictly *below* targetLevel. But just to be cleanly intentional:
     if (widget.targetLevel != null && widget.targetLessonIndex != null && widget.allModules != null) {
-      ProgressService.unlockLessonsUpTo(widget.targetLevel!, widget.targetLessonIndex!, widget.allModules);
+      await ProgressService.unlockLessonsUpTo(widget.targetLevel!, widget.targetLessonIndex!, widget.allModules);
     }
     
-    setState(() => isLessonComplete = true);
+    if (mounted) setState(() => isLessonComplete = true);
   }
 
   @override

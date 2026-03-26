@@ -4,6 +4,11 @@ from .views import (
     PasswordResetRequestView, PasswordResetConfirmView,
     AdminDashboardStatsView, AdminUserListView, AdminUserDetailView
 )
+from apps.lessons.admin_views import (
+    AdminModuleListView, AdminModuleDetailView,
+    AdminLessonListView, AdminLessonDetailView,
+    AdminInstrumentListView,
+)
 from rest_framework_simplejwt.views import TokenRefreshView
 
 urlpatterns = [
@@ -21,4 +26,11 @@ urlpatterns = [
     path('admin/stats/', AdminDashboardStatsView.as_view(), name='admin-stats'),
     path('admin/users/', AdminUserListView.as_view(), name='admin-users'),
     path('admin/users/<int:pk>/', AdminUserDetailView.as_view(), name='admin-user-detail'),
+
+    # Admin Lesson Management
+    path('admin/modules/', AdminModuleListView.as_view(), name='admin-modules'),
+    path('admin/modules/<int:pk>/', AdminModuleDetailView.as_view(), name='admin-module-detail'),
+    path('admin/lessons/', AdminLessonListView.as_view(), name='admin-lessons'),
+    path('admin/lessons/<int:pk>/', AdminLessonDetailView.as_view(), name='admin-lesson-detail'),
+    path('admin/instruments/', AdminInstrumentListView.as_view(), name='admin-instruments'),
 ]

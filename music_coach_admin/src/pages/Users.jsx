@@ -1,14 +1,19 @@
-import { useState, useEffect } from 'react';
-import { Download, Edit, Trash2, Plus } from 'lucide-react';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { Download, Edit, Trash2, Plus, Wifi, WifiOff } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import UserModal from '../components/UserModal';
 import api from '../api/axios';
+
+const WS_URL = 'ws://127.0.0.1:8000/ws/dashboard/';
 
 const Users = () => {
     const [users, setUsers] = useState([]);
     const [statusFilter, setStatusFilter] = useState('all');
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingUser, setEditingUser] = useState(null);
+    const [wsStatus, setWsStatus] = useState('connecting');
+    const wsRef = useRef(null);
+    const reconnectTimer = useRef(null);
     const { getToken } = useAuth();
     const token = getToken();
 
@@ -21,9 +26,48 @@ const Users = () => {
         }
     };
 
-    useEffect(() => {
-        if (token) fetchUsers();
+    const connect = useCallback(() => {
+        const url = token ? `${WS_URL}?token=${token}` : WS_URL;
+        const ws = new WebSocket(url);
+        wsRef.current = ws;
+
+        ws.onopen = () => {
+            setWsStatus('live');
+            clearTimeout(reconnectTimer.current);
+        };
+
+        ws.onmessage = (event) => {
+            try {
+                const data = JSON.parse(event.data);
+                if (data.users) {
+                    setUsers(data.users);
+                }
+            } catch (e) {
+                console.error('WS parse error', e);
+            }
+        };
+
+        ws.onclose = () => {
+            setWsStatus('disconnected');
+            // Auto-reconnect after 3 seconds
+            reconnectTimer.current = setTimeout(connect, 3000);
+        };
+
+        ws.onerror = (err) => {
+            console.error('WebSocket error', err);
+            ws.close();
+        };
     }, [token]);
+
+    useEffect(() => {
+        if (token) {
+            connect();
+        }
+        return () => {
+            clearTimeout(reconnectTimer.current);
+            if (wsRef.current) wsRef.current.close();
+        };
+    }, [connect, token]);
 
     const handleSaveUser = async (userData, id) => {
         if (id) {
@@ -66,9 +110,17 @@ const Users = () => {
 
     return (
         <div>
-            <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between' }}>
+            <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
                     <h1 style={{ fontSize: '1.2rem', fontWeight: 500, color: 'var(--text-muted)' }}>View and manage all user accounts within the platform.</h1>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem', fontWeight: '600',
+                    color: wsStatus === 'live' ? '#22c55e' : wsStatus === 'connecting' ? '#f59e0b' : '#ef4444' }}>
+                    {wsStatus === 'live'
+                        ? <><Wifi size={16} /> LIVE</>
+                        : wsStatus === 'connecting'
+                        ? <><WifiOff size={16} /> Connecting…</>
+                        : <><WifiOff size={16} /> Reconnecting…</>}
                 </div>
             </div>
 

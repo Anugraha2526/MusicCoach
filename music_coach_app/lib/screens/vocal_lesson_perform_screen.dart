@@ -838,8 +838,8 @@ class _VocalLessonPerformScreenState extends State<VocalLessonPerformScreen> wit
       
       if (!mounted) return;
       
-      // Navigate to separate end screen
-      Navigator.of(context).pushReplacement(
+      // Wait for the user to close the end screen
+      await Navigator.of(context).push(
         MaterialPageRoute(
           builder: (context) => _VocalLessonEndScreen(
             lessonTitle: widget.lessonTitle ?? 'Vocal Lesson',
@@ -848,6 +848,11 @@ class _VocalLessonPerformScreenState extends State<VocalLessonPerformScreen> wit
           ),
         ),
       );
+      
+      // Now definitively pop the lesson screen itself so the map can refresh
+      if (mounted) {
+         Navigator.of(context).pop();
+      }
   }
 
   @override
