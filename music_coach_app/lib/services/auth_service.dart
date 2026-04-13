@@ -218,6 +218,30 @@ class AuthService {
     return null;
   }
 
+  // -------------------- Update Streak --------------------
+  static Future<bool> updateStreak() async {
+    final token = await getToken();
+    if (token == null) return false;
+
+    var response = await http.post(
+      Uri.parse(ApiConfig.updateStreak),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+
+    if (response.statusCode == 401) {
+      final refreshSuccess = await tryRefreshToken();
+      if (refreshSuccess) {
+        final newToken = await getToken();
+        response = await http.post(
+          Uri.parse(ApiConfig.updateStreak),
+          headers: {'Authorization': 'Bearer $newToken'},
+        );
+      }
+    }
+
+    return response.statusCode == 200;
+  }
+
   static Future<bool> updateProfile(String username, String email, {double? naturalPitch}) async {
     final token = await getToken();
     if (token == null) return false;

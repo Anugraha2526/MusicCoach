@@ -124,6 +124,13 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _navigateToInstrument(InstrumentItem instrument) {
+    // Update streak in background to count as a "touch"
+    AuthService.updateStreak().then((_) {
+      if (mounted) {
+        _loadData(); // Reload profile so streak updates on screen behind the scenes
+      }
+    });
+
     final typeLower = instrument.type.toLowerCase();
     
     // For piano and vocals, switch to lessons tab in MainLayout
@@ -131,7 +138,9 @@ class _HomeScreenState extends State<HomeScreen> {
       widget.onLessonTap?.call(instrument.type);
     } else {
       // For guitar and pitch, push a new route (will show back button)
-      Navigator.pushNamed(context, instrument.route);
+      Navigator.pushNamed(context, instrument.route).then((_) {
+        if (mounted) _loadData(); // Refresh when returning just in case
+      });
     }
   }
 
