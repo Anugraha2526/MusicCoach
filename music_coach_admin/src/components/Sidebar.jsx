@@ -1,5 +1,5 @@
 import { NavLink, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Users, BookOpen, Settings, LogOut } from 'lucide-react';
+import { LayoutDashboard, Users, BookOpen, LogOut } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 const Sidebar = () => {
@@ -26,9 +26,6 @@ const Sidebar = () => {
                 </NavLink>
                 <NavLink to="/lessons" className="nav-item">
                     <BookOpen size={20} /> Lessons
-                </NavLink>
-                <NavLink to="/settings" className="nav-item">
-                    <Settings size={20} /> Settings
                 </NavLink>
             </div>
             <div className="sidebar-footer">

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Download, Edit, Trash2, Plus, Wifi, WifiOff } from 'lucide-react';
+import { Edit, Trash2, Plus, Wifi, WifiOff } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import UserModal from '../components/UserModal';
 import api from '../api/axios';
@@ -9,6 +9,7 @@ const WS_URL = 'ws://127.0.0.1:8000/ws/dashboard/';
 const Users = () => {
     const [users, setUsers] = useState([]);
     const [statusFilter, setStatusFilter] = useState('all');
+    const [searchQuery, setSearchQuery] = useState('');
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingUser, setEditingUser] = useState(null);
     const [wsStatus, setWsStatus] = useState('connecting');
@@ -101,8 +102,20 @@ const Users = () => {
     };
 
     const applyFilter = (list) => {
-        if (statusFilter === 'all') return list;
-        return list.filter(u => u.is_active === (statusFilter === 'active'));
+        let filtered = list;
+        if (statusFilter !== 'all') {
+            filtered = filtered.filter(u => u.is_active === (statusFilter === 'active'));
+        }
+        if (searchQuery.trim() !== '') {
+            const lowerQuery = searchQuery.toLowerCase();
+            filtered = filtered.filter(u => 
+                (u.email && u.email.toLowerCase().includes(lowerQuery)) ||
+                (u.first_name && u.first_name.toLowerCase().includes(lowerQuery)) ||
+                (u.last_name && u.last_name.toLowerCase().includes(lowerQuery)) ||
+                (u.username && u.username.toLowerCase().includes(lowerQuery))
+            );
+        }
+        return filtered;
     };
 
     const admins = applyFilter(users.filter(u => u.role === 'admin'));
@@ -132,10 +145,9 @@ const Users = () => {
                             <option value="active">Active</option>
                             <option value="inactive">Inactive</option>
                         </select>
-                        <input type="text" placeholder="Search users..." />
+                        <input type="text" placeholder="Search users..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
                     </div>
                     <div style={{ display: 'flex', gap: '10px' }}>
-                        <button className="btn-outline"><Download size={16} /> Export</button>
                         <button className="btn-primary" onClick={openCreateModal} style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
                             <Plus size={16} /> New User
                         </button>
