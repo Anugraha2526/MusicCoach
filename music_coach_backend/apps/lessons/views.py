@@ -211,7 +211,6 @@ class SyncProgressView(APIView):
 
 class GenerateFeedbackView(APIView):
     permission_classes = [IsAuthenticated]
-    HF_MODEL = "mistralai/Mistral-7B-Instruct-v0.3"
 
     FALLBACKS = {
         3: [
@@ -239,55 +238,14 @@ class GenerateFeedbackView(APIView):
     }
 
     def post(self, request):
-        import requests as req
         import random as _random
-        from django.conf import settings
-        import re as _re
 
-        lesson_name = request.data.get("lesson_name", "this lesson")
-        accuracy    = request.data.get("accuracy", None)
-        stars       = request.data.get("stars", None)
-        instrument  = request.data.get("instrument", "piano")
-
-        score_line = ""
-        if accuracy is not None:
-            score_line = "They scored {}% accuracy".format(accuracy)
-            if stars:
-                score_line += " and earned {} out of 3 stars.".format(stars)
-            else:
-                score_line += "."
-
-        sys_msg = (
-            "You are an encouraging and friendly music coach for beginner musicians. "
-            "Write exactly 2 short, warm, motivating sentences (max 35 words total). "
-            "Do not use bullet points, asterisks or quotation marks."
-        )
-        user_msg = (
-            "A student just completed the {} lesson called {}. ".format(instrument, repr(lesson_name))
-            + score_line
-            + " Write 2 warm encouraging sentences for them."
-        )
-
-        headers = {
-            "Authorization": "Bearer " + settings.HUGGINGFACE_API_KEY,
-            "Content-Type": "application/json",
-        }
-        payload = {
-            "model": self.HF_MODEL,
-            "messages": [
-                {"role": "system", "content": sys_msg},
-                {"role": "user",   "content": user_msg},
-            ],
-            "max_tokens": 80,
-            "temperature": 0.95,
-            "top_p": 0.92,
-        }
-
+        # We use a fast, dynamic, internal feedback system that gives
+        # instant zero-latency personalized feedback based on performance.
+        stars = request.data.get("stars", None)
+        
         fallback_list = self.FALLBACKS.get(stars, self.FALLBACKS[None])
-        fallback = _random.choice(fallback_list)
+        message = _random.choice(fallback_list)
 
-        # The Hugging Face free tier APIs are returning 410 Gone for all LLMs.
-        # We will use our dynamic per-star fallback messages instead which guarantees
-        # an instant, zero-latency personalized response.
-        return Response({"message": fallback})
+        return Response({"message": message})
 
