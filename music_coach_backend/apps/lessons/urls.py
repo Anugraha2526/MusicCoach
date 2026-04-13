@@ -6,7 +6,8 @@ from .views import (
     GetProgressView,
     SyncProgressView,
     PitchHistoryListCreateView,
-    PitchHistoryDetailView
+    PitchHistoryDetailView,
+    GenerateFeedbackView,
 )
 
 urlpatterns = [
@@ -22,6 +23,7 @@ urlpatterns = [
     # Progress endpoints
     path('progress/', GetProgressView.as_view(), name='lesson-progress-get'),
     path('progress/sync/', SyncProgressView.as_view(), name='lesson-progress-sync'),
+    path('progress/feedback/', GenerateFeedbackView.as_view(), name='lesson-feedback'),
     
     # Pitch History
     path('pitch-history/', PitchHistoryListCreateView.as_view(), name='pitch-history'),

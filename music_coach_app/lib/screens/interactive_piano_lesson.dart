@@ -51,6 +51,10 @@ class _InteractivePianoLessonScreenState extends State<InteractivePianoLessonScr
   String? highlightedKey;
   bool isLessonComplete = false;
   String? errorMessage;
+
+  // AI Coach feedback
+  String? _aiCoachMessage;        // null = not yet fetched
+  bool _isLoadingAiMessage = false;
   
   // Play mode state (Lesson 3)
   int currentNoteIndex = 0; // Current position in the song
@@ -1102,7 +1106,47 @@ class _InteractivePianoLessonScreenState extends State<InteractivePianoLessonScr
       await ProgressService.unlockLessonsUpTo(widget.targetLevel!, widget.targetLessonIndex!, widget.allModules);
     }
     
-    if (mounted) setState(() => isLessonComplete = true);
+    if (mounted) {
+      setState(() {
+        isLessonComplete = true;
+        _isLoadingAiMessage = true;
+      });
+
+      // Determine accuracy & stars for the last perform sequence (if any)
+      int? accuracyPct;
+      int? starsEarned;
+      final safeIdx = (currentSequenceIndex >= sequences.length)
+          ? sequences.length - 1
+          : currentSequenceIndex;
+      if (sequences.isNotEmpty) {
+        final lastSeq = sequences[safeIdx];
+        final bool isRehearsal = (widget.lessonTitle?.contains('Rehearsal') ?? false) ||
+            widget.lessonId == 4 || (widget.lessonTitle == 'Rehearsal');
+        if (lastSeq.type == 'perform' && !isRehearsal) {
+          final totalNotes = lastSeq.notes.where((n) => n != '-').length;
+          if (totalNotes > 0) {
+            final acc = correctNotesCount / totalNotes;
+            accuracyPct = (acc * 100).round();
+            starsEarned = acc >= 0.9 ? 3 : acc >= 0.7 ? 2 : 1;
+          }
+        }
+      }
+
+      // Fetch message asynchronously — UI shows spinner in the meantime
+      ProgressService.fetchDynamicFeedback(
+        lessonName: widget.lessonTitle ?? 'this lesson',
+        accuracy: accuracyPct,
+        stars: starsEarned,
+        instrument: 'piano',
+      ).then((msg) {
+        if (mounted) {
+          setState(() {
+            _aiCoachMessage = msg;
+            _isLoadingAiMessage = false;
+          });
+        }
+      });
+    }
   }
 
   @override
@@ -1537,9 +1581,11 @@ class _InteractivePianoLessonScreenState extends State<InteractivePianoLessonScr
     return Scaffold(
       backgroundColor: const Color(0xFF0F172A),
       body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 24),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
             // STARS only for scoreable perform mode
             if (isPerformScoreable)
               Row(
@@ -1582,7 +1628,7 @@ class _InteractivePianoLessonScreenState extends State<InteractivePianoLessonScr
                  ),
               ),
 
-            const SizedBox(height: 32),
+            const SizedBox(height: 20),
 
             Text(
               title,
@@ -1598,12 +1644,33 @@ class _InteractivePianoLessonScreenState extends State<InteractivePianoLessonScr
               ),
 
             const SizedBox(height: 16),
-            Text(
-              subtitle,
-              style: const TextStyle(color: Colors.white70, fontSize: 18),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 48),
+            // AI Coach Message — spinner while loading, then animated text
+            if (_isLoadingAiMessage)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 8),
+                child: SizedBox(
+                  width: 24, height: 24,
+                  child: CircularProgressIndicator(
+                    color: Color(0xFF58CC02), strokeWidth: 2.5,
+                  ),
+                ),
+              )
+            else
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 32),
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 600),
+                  child: Text(
+                    _aiCoachMessage ?? subtitle,
+                    key: ValueKey(_aiCoachMessage ?? subtitle),
+                    style: const TextStyle(
+                      color: Colors.white70, fontSize: 17, height: 1.5,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              ),
+            const SizedBox(height: 32),
             ElevatedButton(
               onPressed: () => Navigator.of(context).pop(),
               style: ElevatedButton.styleFrom(
@@ -1615,9 +1682,10 @@ class _InteractivePianoLessonScreenState extends State<InteractivePianoLessonScr
               ),
               child: const Text('CONTINUE', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             ),
-          ],
-        ),
-      ),
+          ],         // Column children
+          ),         // Column
+        ),           // SingleChildScrollView
+      ),             // Center
     );
   }
 }

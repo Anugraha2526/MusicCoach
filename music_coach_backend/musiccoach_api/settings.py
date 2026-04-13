@@ -189,3 +189,6 @@ CACHES = {
         "LOCATION": "musiccoach-otp-cache",
     }
 }
+
+# Hugging Face Inference API
+HUGGINGFACE_API_KEY = "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"
