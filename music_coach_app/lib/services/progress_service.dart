@@ -111,7 +111,49 @@ class ProgressService {
 
   // --- Backend Sync Methods ---
 
+  /// Fetch a dynamic AI-generated feedback message from the backend
+  /// using the Llama 3 model via Hugging Face.
+  /// Returns a fallback string if the request fails for any reason.
+  static Future<String> fetchDynamicFeedback({
+    required String lessonName,
+    int? accuracy,
+    int? stars,
+    String instrument = 'piano',
+  }) async {
+    try {
+      final token = await AuthService.getToken();
+      if (token == null) {
+        return "Amazing job finishing the lesson! Keep up the great work!";
+      }
+
+      final response = await http.post(
+        Uri.parse('${ApiConfig.baseUrl}/api/lessons/progress/feedback/'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode({
+          'lesson_name': lessonName,
+          if (accuracy != null) 'accuracy': accuracy,
+          if (stars != null) 'stars': stars,
+          'instrument': instrument,
+        }),
+      ).timeout(const Duration(seconds: 25));
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final message = data['message'] as String? ?? '';
+        if (message.isNotEmpty) return message;
+      }
+    } catch (e) {
+      print('DEBUG: fetchDynamicFeedback error: $e');
+    }
+    // Graceful fallback
+    return "Amazing job finishing the lesson! Keep up the great work!";
+  }
+
   /// Push local progress to the backend
+
   static Future<void> _syncToBackend(List<String> completed) async {
     try {
       final token = await AuthService.getToken();
