@@ -190,5 +190,3 @@ CACHES = {
     }
 }
 
-# Hugging Face Inference API
-HUGGINGFACE_API_KEY = "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"
