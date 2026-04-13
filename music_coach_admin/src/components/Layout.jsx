@@ -1,6 +1,5 @@
 import Sidebar from './Sidebar';
 import { Outlet } from 'react-router-dom';
-import { Bell } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 const Layout = () => {
@@ -14,7 +13,6 @@ const Layout = () => {
                 <header className="topbar">
 
                     <div className="user-profile">
-                        <Bell size={20} style={{ cursor: 'pointer' }} />
                         <div className="avatar">{initial}</div>
                     </div>
                 </header>

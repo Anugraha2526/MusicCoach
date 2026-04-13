@@ -72,6 +72,9 @@ class PracticeSequence(models.Model):
         ('identify', 'Identify Note'),
         ('read', 'Sight Reading'),
         ('play', 'Play Mode'),
+        ('perform', 'Perform (Scored)'),
+        ('tap', 'Tap Mode'),
+        ('place', 'Place Note'),
     ]
 
     lesson = models.ForeignKey(Lesson, on_delete=models.CASCADE, related_name='sequences')
