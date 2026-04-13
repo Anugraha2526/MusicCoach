@@ -17,6 +17,7 @@ class ApiConfig {
   static const String login = "$accountsBase/login/";
   static const String logout = "$accountsBase/logout/";
   static const String profile = "$accountsBase/profile/";
+  static const String updateStreak = "$accountsBase/update-streak/";
   static const String changePassword = "$accountsBase/change-password/";
   static const String passwordReset = "$accountsBase/password-reset/";
   static const String passwordResetConfirm = "$accountsBase/password-reset-confirm/";

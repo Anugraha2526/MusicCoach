@@ -95,6 +95,13 @@ class ProfileView(generics.RetrieveUpdateAPIView):
 
     def get_object(self):
         user = self.request.user
+        return user
+
+class UpdateStreakView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        user = request.user
         today = date.today()
 
         if user.last_active_date is None:
@@ -115,7 +122,7 @@ class ProfileView(generics.RetrieveUpdateAPIView):
                 user.current_streak = 1
                 user.save(update_fields=['current_streak'])
                 
-        return user
+        return Response({"current_streak": user.current_streak, "last_active_date": user.last_active_date})
 
 # -------------------- Change Password --------------------
 class ChangePasswordView(APIView):
