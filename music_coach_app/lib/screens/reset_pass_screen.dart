@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
+import '../utils/validators.dart';
 
 class ResetPasswordScreen extends StatefulWidget {
   final String email;
@@ -30,9 +31,10 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
       return;
     }
 
-    if (newPassword.length < 8) {
+    final passwordError = Validators.validatePassword(newPassword);
+    if (passwordError != null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Password must be at least 8 characters')),
+        SnackBar(content: Text(passwordError)),
       );
       return;
     }

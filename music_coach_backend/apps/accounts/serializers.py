@@ -1,9 +1,24 @@
+import re
 from rest_framework import serializers
+from rest_framework.exceptions import ValidationError
 from .models import CustomUser
+
+def validate_strong_password(password):
+    if len(password) < 8:
+        raise ValidationError("Password must be at least 8 characters long.")
+    if not re.search(r'[A-Z]', password):
+        raise ValidationError("Password must contain at least one uppercase letter.")
+    if not re.search(r'[a-z]', password):
+        raise ValidationError("Password must contain at least one lowercase letter.")
+    if not re.search(r'\d', password):
+        raise ValidationError("Password must contain at least one number.")
+    if not re.search(r'[!@#$%^&*()_+\-={}\[\]|;:\'",.<>/?]', password):
+        raise ValidationError("Password must contain at least one special character.")
+    return password
 
 # Registration Serializer
 class RegisterSerializer(serializers.ModelSerializer):
-    password = serializers.CharField(write_only=True, required=True)
+    password = serializers.CharField(write_only=True, required=True, validators=[validate_strong_password])
 
     class Meta:
         model = CustomUser
@@ -29,7 +44,7 @@ class LoginSerializer(serializers.Serializer):
 # Change Password Serializer
 class ChangePasswordSerializer(serializers.Serializer):
     old_password = serializers.CharField(required=True)
-    new_password = serializers.CharField(required=True)
+    new_password = serializers.CharField(required=True, validators=[validate_strong_password])
 
 
 # Profile Update Serializer
@@ -47,7 +62,7 @@ class PasswordResetRequestSerializer(serializers.Serializer):
 class PasswordResetConfirmSerializer(serializers.Serializer):
     email = serializers.EmailField(required=True)
     otp = serializers.CharField(max_length=6, required=True)  # OTP sent to email
-    new_password = serializers.CharField(required=True, min_length=8)
+    new_password = serializers.CharField(required=True, validators=[validate_strong_password])
 
 # -------------------- Admin Dashboard Serializers --------------------
 
@@ -79,7 +94,7 @@ class AdminUserSerializer(serializers.ModelSerializer):
 
 
 class AdminUserWriteSerializer(serializers.ModelSerializer):
-    password = serializers.CharField(write_only=True, required=False, min_length=8)
+    password = serializers.CharField(write_only=True, required=False, validators=[validate_strong_password])
 
     class Meta:
         model = CustomUser

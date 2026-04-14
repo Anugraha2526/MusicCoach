@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
+import '../utils/validators.dart';
 
 class ChangePasswordScreen extends StatefulWidget {
   @override
@@ -51,6 +52,14 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
     if (newPassword != confirmPassword) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('New passwords do not match')),
+      );
+      return;
+    }
+
+    final passwordError = Validators.validatePassword(newPassword);
+    if (passwordError != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(passwordError)),
       );
       return;
     }
