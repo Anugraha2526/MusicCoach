@@ -211,7 +211,13 @@ class _VocalLessonScreenState extends State<VocalLessonScreen>
           onCalibrationComplete: (double pitchHz) async {
              if (_profile != null) {
                  // The profile must have username and email
-                 await AuthService.updateProfile(_profile!['username'] ?? '', _profile!['email'] ?? '', naturalPitch: pitchHz);
+                 await AuthService.updateProfile(
+                    _profile!['username'] ?? '', 
+                    _profile!['email'] ?? '', 
+                    _profile!['first_name'] ?? '', 
+                    _profile!['last_name'] ?? '', 
+                    naturalPitch: pitchHz
+                 );
              }
              if (mounted) {
                 setState(() {

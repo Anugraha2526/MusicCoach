@@ -15,6 +15,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   final usernameController = TextEditingController();
   final emailController = TextEditingController();
+  final firstNameController = TextEditingController();
+  final lastNameController = TextEditingController();
   double? _naturalPitch;
 
   @override
@@ -33,6 +35,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
       if (profile != null) {
         usernameController.text = profile['username'] ?? '';
         emailController.text = profile['email'] ?? '';
+        firstNameController.text = profile['first_name'] ?? '';
+        lastNameController.text = profile['last_name'] ?? '';
         _naturalPitch = profile['natural_pitch'];
       }
     }
@@ -57,6 +61,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     bool success = await AuthService.updateProfile(
       usernameController.text.trim(),
       emailController.text.trim(),
+      firstNameController.text.trim(),
+      lastNameController.text.trim(),
     );
     setState(() => isUpdating = false);
 
@@ -83,6 +89,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   void dispose() {
     usernameController.dispose();
     emailController.dispose();
+    firstNameController.dispose();
+    lastNameController.dispose();
     super.dispose();
   }
 
@@ -181,6 +189,48 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
             const SizedBox(height: 32),
 
+            // First Name
+            TextField(
+              controller: firstNameController,
+              style: TextStyle(color: primaryText),
+              decoration: InputDecoration(
+                labelText: 'First Name',
+                labelStyle: TextStyle(color: secondaryText),
+                enabledBorder: OutlineInputBorder(
+                  borderSide: BorderSide(color: secondaryText.withOpacity(0.5)),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderSide: BorderSide(color: primaryAccent),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                filled: true,
+                fillColor: Colors.white.withOpacity(0.05),
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // Last Name
+            TextField(
+              controller: lastNameController,
+              style: TextStyle(color: primaryText),
+              decoration: InputDecoration(
+                labelText: 'Last Name',
+                labelStyle: TextStyle(color: secondaryText),
+                enabledBorder: OutlineInputBorder(
+                  borderSide: BorderSide(color: secondaryText.withOpacity(0.5)),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderSide: BorderSide(color: primaryAccent),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                filled: true,
+                fillColor: Colors.white.withOpacity(0.05),
+              ),
+            ),
+            const SizedBox(height: 16),
+
             // Username
             TextField(
               controller: usernameController,
@@ -236,6 +286,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                              await AuthService.updateProfile(
                                 usernameController.text.trim(),
                                 emailController.text.trim(),
+                                firstNameController.text.trim(),
+                                lastNameController.text.trim(),
                                 naturalPitch: pitchHz,
                              );
                              // Update local state and pop

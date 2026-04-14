@@ -7,7 +7,7 @@ class RegisterSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = CustomUser
-        fields = ['id', 'username', 'email', 'password', 'role']
+        fields = ['id', 'username', 'email', 'password', 'first_name', 'last_name', 'role']
 
     def create(self, validated_data):
         # Create user with hashed password
@@ -15,6 +15,8 @@ class RegisterSerializer(serializers.ModelSerializer):
             username=validated_data['username'],
             email=validated_data['email'],
             password=validated_data['password'],
+            first_name=validated_data.get('first_name', ''),
+            last_name=validated_data.get('last_name', ''),
             role=validated_data.get('role', 'user')
         )
         return user
@@ -34,7 +36,7 @@ class ChangePasswordSerializer(serializers.Serializer):
 class ProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = CustomUser
-        fields = ['id', 'username', 'email', 'role', 'natural_pitch', 'current_streak']
+        fields = ['id', 'username', 'email', 'first_name', 'last_name', 'role', 'natural_pitch', 'current_streak']
         extra_kwargs = {'email': {'required': True}}
 
 # Password Reset Request Serializer
