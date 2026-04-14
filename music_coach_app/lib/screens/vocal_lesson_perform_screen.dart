@@ -1330,11 +1330,12 @@ class VocalGraphPainter extends CustomPainter {
         
         // Determine state for visual feedback
         bool isActive = currentBeat >= i && currentBeat < i + (noteWidth / beatWidth);
-        bool isScored = scoredBeats.contains(i);
+        bool isPassed = currentBeat >= i + (noteWidth / beatWidth);
+        bool isScored = scoredBeats.contains(i) && isPassed;
 
-        // Fill: bright solid pink when scored, otherwise light pink
+        // Fill: bright solid green when scored, otherwise light pink
         Color fill = isScored
-            ? const Color(0xFFE93B81).withOpacity(0.85) // Fully lit when correctly sung
+            ? Colors.green.withOpacity(0.85) // Fully lit when correctly sung
             : isActive
                 ? const Color(0xFFE93B81).withOpacity(0.45)
                 : const Color(0xFFE93B81).withOpacity(0.18);
@@ -1345,7 +1346,7 @@ class VocalGraphPainter extends CustomPainter {
 
         final Paint noteStrokePaint = Paint()
           ..color = isScored
-              ? const Color(0xFFE93B81)              // Bright stroke when scored
+              ? Colors.green              // Bright green stroke when scored
               : isActive
                   ? const Color(0xFFE93B81)
                   : const Color(0xFFE93B81).withOpacity(0.55)
@@ -1543,11 +1544,11 @@ class _MiniMapPainter extends CustomPainter {
       double x = padding + i * beatWidth;
       bool isPassed = currentBeat >= i + (noteW / beatWidth);
       bool isActive = currentBeat >= i && currentBeat < i + (noteW / beatWidth);
-      bool isHit = scoredBeats.contains(i);
+      bool isHit = scoredBeats.contains(i) && isPassed;
 
       Color barColor;
       if (isHit) {
-        barColor = const Color(0xFFE93B81); // Correctly sung: bright pink
+        barColor = Colors.green; // Correctly sung: bright green
       } else {
         barColor = Colors.white.withOpacity(0.2); // Everything else: same dim white
       }
