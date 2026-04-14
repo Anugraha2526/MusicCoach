@@ -13,14 +13,12 @@ class DashboardConsumer(AsyncWebsocketConsumer):
     async def connect(self):
         await self.channel_layer.group_add(STATS_GROUP, self.channel_name)
         await self.accept()
-        # Send current stats immediately on connect
         stats = await self.get_stats()
         await self.send(text_data=json.dumps(stats))
 
     async def disconnect(self, close_code):
         await self.channel_layer.group_discard(STATS_GROUP, self.channel_name)
 
-    # Receives a broadcast from group_send
     async def stats_update(self, event):
         await self.send(text_data=json.dumps(event["data"]))
 
@@ -73,7 +71,6 @@ class DashboardConsumer(AsyncWebsocketConsumer):
 
         total_completed = piano_completed + vocal_completed
 
-        # Per-user lesson counts for the Users page
         from apps.accounts.serializers import AdminUserSerializer
         users_qs = User.objects.prefetch_related(
             'progress__completed_lessons__module__instrument'

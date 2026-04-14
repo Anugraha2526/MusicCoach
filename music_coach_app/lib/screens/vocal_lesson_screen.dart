@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:math' as math;
-import 'vocal_lesson_perform_screen.dart'; // We will create this next
+import 'vocal_lesson_perform_screen.dart';
 import 'vocal_pitch_calibration_screen.dart';
 import '../services/lesson_service.dart';
 import '../models/lesson_models.dart';
@@ -20,10 +20,8 @@ class VocalLessonScreen extends StatefulWidget {
 class _VocalLessonScreenState extends State<VocalLessonScreen>
     with TickerProviderStateMixin {
   int? selectedLessonIndex;
-  // Initialize with a very large offset to start at the bottom (Level 1 & 2)
   final ScrollController _scrollController = ScrollController(initialScrollOffset: 100000);
 
-  // Vocal color
   final Color _vocalColor = const Color(0xFFE93B81);
 
   List<LessonModule> _backendModules = [];
@@ -50,7 +48,6 @@ class _VocalLessonScreenState extends State<VocalLessonScreen>
   @override
   void initState() {
     super.initState();
-    // Enforce portrait mode when entering this screen
     SystemChrome.setPreferredOrientations([
       DeviceOrientation.portraitUp,
     ]);
@@ -84,7 +81,6 @@ class _VocalLessonScreenState extends State<VocalLessonScreen>
           _isLoading = false;
         });
       }
-      print('DEBUG: Error loading vocal lessons: $e');
     }
   }
 
@@ -133,7 +129,6 @@ class _VocalLessonScreenState extends State<VocalLessonScreen>
         ),
       );
     } else {
-      // Placeholder for future lessons
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('This lesson is coming soon!'),
@@ -143,10 +138,9 @@ class _VocalLessonScreenState extends State<VocalLessonScreen>
     }
   }
 
-  // Vertical spacing constants
-  static const double _verticalSpacing = 160.0; // Spacing between lessons
-  static const double _levelGap = 100.0;       // Extra gap for level headers
-  static const double _bottomPadding = 220.0;  // Reverted closer to original
+  static const double _verticalSpacing = 160.0;
+  static const double _levelGap = 100.0;
+  static const double _bottomPadding = 220.0;
 
   double _getLessonY(int index, double contentHeight) {
     final level = (index / 5).floor();
@@ -159,30 +153,23 @@ class _VocalLessonScreenState extends State<VocalLessonScreen>
     final lessonInLevel = placeholder.index; // 0-4 within the level
     
     final y = _getLessonY(placeholderIndex, contentHeight);
-    
-    // Horizontal center
+
     final centerX = screenWidth / 2;
-    final maxOffset = screenWidth * 0.25; // Maximum horizontal offset
-    
-    // Progress within the level (0 to 1 for 5 lessons)
+    final maxOffset = screenWidth * 0.25;
+
     final progressInLevel = lessonInLevel / 4.0;
-    
-    // Alternate direction per level: Level 1 goes right, Level 2 goes left, etc.
-    final isRightDirection = (level % 2 == 1); // Odd levels go right, even go left
+
+    final isRightDirection = (level % 2 == 1);
     final direction = isRightDirection ? 1.0 : -1.0;
-    
-    // Create a curve within the level (sine wave for smooth curve)
+
     final curve = math.sin(progressInLevel * math.pi) * maxOffset * direction;
     final x = centerX + curve;
-    
+
     return Offset(x, y);
   }
 
-  // Get level label position (placed in the gap between levels)
   double _getLevelLabelY(int level, double contentHeight) {
-    // Position it centered in the gap for Level 1, and balanced for others
     final firstLessonIndex = (level - 1) * 5;
-    // Increased offset to move it DOWN towards the bottom of the screen/nav
     return _getLessonY(firstLessonIndex, contentHeight) + 130;
   }
 

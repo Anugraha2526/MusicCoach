@@ -19,7 +19,7 @@ class CustomUserManager(BaseUserManager):
     def create_superuser(self, email, username, password=None, **extra_fields):
         extra_fields.setdefault('is_staff', True)
         extra_fields.setdefault('is_superuser', True)
-        extra_fields.setdefault('role', 'admin')  # Set role to admin for superusers!
+        extra_fields.setdefault('role', 'admin')
 
         if extra_fields.get('is_staff') is not True:
             raise ValueError('Superuser must have is_staff=True.')
@@ -37,10 +37,9 @@ class CustomUser(AbstractUser):
 
     objects = CustomUserManager()
 
-    # Make email the USERNAME_FIELD for authentication
-    email = models.EmailField(unique=True)  # ensure unique
-    USERNAME_FIELD = 'email'  # login uses email now
-    REQUIRED_FIELDS = ['username']  # still required when creating superuser
+    email = models.EmailField(unique=True)
+    USERNAME_FIELD = 'email'
+    REQUIRED_FIELDS = ['username']
 
     def __str__(self):
         return f"{self.username} ({self.role})"
