@@ -16,18 +16,14 @@ class PianoLessonScreen extends StatefulWidget {
 class _PianoLessonScreenState extends State<PianoLessonScreen>
     with TickerProviderStateMixin {
   int? selectedLessonIndex;
-  // Initialize with a very large offset to start at the bottom (Level 1 & 2)
-  // The actual maxScrollExtent will clamp this value automatically
   final ScrollController _scrollController = ScrollController(initialScrollOffset: 100000);
 
-  // Piano color
   final Color _pianoColor = const Color(0xFF00B4D8);
 
   List<LessonModule> _backendModules = [];
   bool _isLoading = true;
   Set<int> _completedLessons = {};
 
-  // Generate all lessons placeholders (Level 1 first, going up to Level 5)
   List<LessonPlaceholder> get _lessonPlaceholders {
     final placeholders = <LessonPlaceholder>[];
     for (int level = 1; level <= 5; level++) {
@@ -44,7 +40,6 @@ class _PianoLessonScreenState extends State<PianoLessonScreen>
   @override
   void initState() {
     super.initState();
-    // Enforce portrait mode when entering this screen
     SystemChrome.setPreferredOrientations([
       DeviceOrientation.portraitUp,
     ]);
@@ -71,7 +66,6 @@ class _PianoLessonScreenState extends State<PianoLessonScreen>
           _isLoading = false;
         });
       }
-      print('DEBUG: Error loading lessons: $e');
     }
   }
 

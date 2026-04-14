@@ -16,7 +16,6 @@ def validate_strong_password(password):
         raise ValidationError("Password must contain at least one special character.")
     return password
 
-# Registration Serializer
 class RegisterSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, required=True, validators=[validate_strong_password])
 
@@ -25,7 +24,6 @@ class RegisterSerializer(serializers.ModelSerializer):
         fields = ['id', 'username', 'email', 'password', 'first_name', 'last_name', 'role']
 
     def create(self, validated_data):
-        # Create user with hashed password
         user = CustomUser.objects.create_user(
             username=validated_data['username'],
             email=validated_data['email'],
@@ -36,35 +34,32 @@ class RegisterSerializer(serializers.ModelSerializer):
         )
         return user
 
-# Login Serializer
 class LoginSerializer(serializers.Serializer):
     email = serializers.EmailField(required=True)
     password = serializers.CharField(write_only=True, required=True)
 
-# Change Password Serializer
+
 class ChangePasswordSerializer(serializers.Serializer):
     old_password = serializers.CharField(required=True)
     new_password = serializers.CharField(required=True, validators=[validate_strong_password])
 
 
-# Profile Update Serializer
 class ProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = CustomUser
         fields = ['id', 'username', 'email', 'first_name', 'last_name', 'role', 'natural_pitch', 'current_streak']
         extra_kwargs = {'email': {'required': True}}
 
-# Password Reset Request Serializer
+
 class PasswordResetRequestSerializer(serializers.Serializer):
     email = serializers.EmailField(required=True)
 
-# Password Reset Confirm Serializer (OTP-based)
+
 class PasswordResetConfirmSerializer(serializers.Serializer):
     email = serializers.EmailField(required=True)
-    otp = serializers.CharField(max_length=6, required=True)  # OTP sent to email
+    otp = serializers.CharField(max_length=6, required=True)
     new_password = serializers.CharField(required=True, validators=[validate_strong_password])
 
-# -------------------- Admin Dashboard Serializers --------------------
 
 class AdminUserSerializer(serializers.ModelSerializer):
     piano_lessons_completed = serializers.SerializerMethodField()

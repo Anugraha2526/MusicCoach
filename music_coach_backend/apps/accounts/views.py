@@ -17,7 +17,6 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.permissions import IsAuthenticated
 from .permissions import IsAdminRole
 
-# For password reset OTP
 import random
 from django.core.cache import cache
 from django.core.mail import send_mail
@@ -25,7 +24,6 @@ from django.conf import settings
 
 User = get_user_model()
 
-# Helper: Generate JWT tokens
 def get_tokens_for_user(user):
     refresh = RefreshToken.for_user(user)
     return {
@@ -33,7 +31,6 @@ def get_tokens_for_user(user):
         'access': str(refresh.access_token),
     }
 
-# -------------------- Registration --------------------
 class RegisterView(generics.CreateAPIView):
     serializer_class = RegisterSerializer
     permission_classes = [permissions.AllowAny]
@@ -46,13 +43,10 @@ class RegisterView(generics.CreateAPIView):
             return Response({"user": serializer.data, "token": token}, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-# -------------------- Login --------------------
 class LoginView(APIView):
     permission_classes = [permissions.AllowAny]
 
     def post(self, request):
-        print("Login request data:", request.data)
-        
         email = request.data.get('email')
         password = request.data.get('password')
         user = authenticate(email=email, password=password)
@@ -61,7 +55,6 @@ class LoginView(APIView):
             return Response({"message": "Login successful", "token": token})
         return Response({"error": "Invalid credentials"}, status=status.HTTP_401_UNAUTHORIZED)
 
-# -------------------- Admin Login --------------------
 class AdminLoginView(APIView):
     permission_classes = [permissions.AllowAny]
 
@@ -88,7 +81,6 @@ class AdminLoginView(APIView):
 
 from datetime import date
 
-# -------------------- Profile --------------------
 class ProfileView(generics.RetrieveUpdateAPIView):
     serializer_class = ProfileSerializer
     permission_classes = [permissions.IsAuthenticated]
@@ -124,7 +116,6 @@ class UpdateStreakView(APIView):
                 
         return Response({"current_streak": user.current_streak, "last_active_date": user.last_active_date})
 
-# -------------------- Change Password --------------------
 class ChangePasswordView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
@@ -141,7 +132,6 @@ class ChangePasswordView(APIView):
             return Response({"message": "Password changed successfully"})
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-# -------------------- Logout --------------------
 class LogoutView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -154,12 +144,9 @@ class LogoutView(APIView):
         except Exception:
             return Response({"error": "Invalid token"}, status=status.HTTP_400_BAD_REQUEST)
 
-# -------------------- OTP Helper --------------------
 def generate_otp():
-    return str(random.randint(100000, 999999))  # 6-digit OTP
+    return str(random.randint(100000, 999999))
 
-# -------------------- Password Reset Request (OTP) --------------------
-# -------------------- Password Reset Request (OTP) --------------------
 class PasswordResetRequestView(generics.GenericAPIView):
     serializer_class = PasswordResetRequestSerializer
     permission_classes = [permissions.AllowAny]
@@ -171,7 +158,7 @@ class PasswordResetRequestView(generics.GenericAPIView):
             try:
                 user = User.objects.get(email=email)
                 otp = generate_otp()
-                cache.set(f'password_reset_otp_{email}', otp, timeout=600)  # 10 min OTP
+                cache.set(f'password_reset_otp_{email}', otp, timeout=600)
 
                 send_mail(
                     subject="Your OTP for Password Reset",
@@ -186,7 +173,6 @@ class PasswordResetRequestView(generics.GenericAPIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-# -------------------- Password Reset Confirm (OTP) --------------------
 class PasswordResetConfirmView(generics.GenericAPIView):
     serializer_class = PasswordResetConfirmSerializer
     permission_classes = [permissions.AllowAny]
@@ -199,8 +185,6 @@ class PasswordResetConfirmView(generics.GenericAPIView):
             new_password = serializer.validated_data['new_password']
 
             cached_otp = cache.get(f'password_reset_otp_{email}')
-            print("Cached OTP:", cache.get(f"password_reset_otp_{email}"))
-            print("Received OTP:", otp)
 
             if cached_otp is None:
                 return Response({"error": "OTP expired or invalid."}, status=status.HTTP_400_BAD_REQUEST)
@@ -226,25 +210,23 @@ from django.db.models.functions import TruncDate
 from apps.lessons.models import UserProgress
 import random
 
-# -------------------- Admin Dashboard --------------------
 class AdminDashboardStatsView(APIView):
     permission_classes = [IsAdminRole]
 
     def get(self, request):
         total_users = User.objects.count()
-        
-        # New Users Daily (Last 7 days)
+
         today = timezone.now().date()
         seven_days_ago = today - timedelta(days=6)
-        
+
         daily_users = User.objects.filter(date_joined__date__gte=seven_days_ago) \
             .annotate(date=TruncDate('date_joined')) \
             .values('date') \
             .annotate(count=Count('id')) \
             .order_by('date')
-        
+
         daily_data_dict = {str(item['date']): item['count'] for item in daily_users}
-        
+
         daily_users_data = []
         for i in range(7):
             day = seven_days_ago + timedelta(days=i)
@@ -254,7 +236,6 @@ class AdminDashboardStatsView(APIView):
                 "users": daily_data_dict.get(str(day), 0)
             })
 
-        # Total completed lessons (piano + vocal)
         piano_completed = 0
         vocal_completed = 0
         for progress in UserProgress.objects.prefetch_related('completed_lessons__module__instrument').all():
@@ -264,10 +245,9 @@ class AdminDashboardStatsView(APIView):
                     piano_completed += 1
                 elif 'vocal' in instrument_name.lower():
                     vocal_completed += 1
-        
+
         total_completed = piano_completed + vocal_completed
 
-        # Piano vs Vocal chart data
         lesson_breakdown_data = [
             {"name": "Piano", "lessons": piano_completed},
             {"name": "Vocal", "lessons": vocal_completed},

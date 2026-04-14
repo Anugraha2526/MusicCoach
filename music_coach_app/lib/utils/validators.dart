@@ -15,6 +15,6 @@ class Validators {
     if (!RegExp(r'''[!@#\$%\^&\*\(\)_\+\-\=\{\}\[\]\|;:'",\.<>\/\?]''').hasMatch(password)) {
       return 'Password must contain at least one special character.';
     }
-    return null; // Null means validation passed
+    return null;
   }
 }

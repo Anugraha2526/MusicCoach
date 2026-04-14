@@ -25,12 +25,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _checkLoginStatus();
   }
 
-  // -------------------- Check if user is logged in --------------------
   void _checkLoginStatus() async {
     bool loggedIn = await AuthService.isLoggedIn();
 
     if (loggedIn) {
-      // Fetch profile from backend
       final profile = await AuthService.fetchProfile();
       if (profile != null) {
         usernameController.text = profile['username'] ?? '';
@@ -47,9 +45,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     });
   }
 
-  // -------------------- Update profile --------------------
   void handleUpdateProfile() async {
-    // Safety check - should not happen as button is hidden when not logged in
     if (!isLoggedIn) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Please login to update profile')),

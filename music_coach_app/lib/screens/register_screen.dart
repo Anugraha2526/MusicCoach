@@ -51,7 +51,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Registration successful!')),
       );
-      // Navigate to Instrument Selection (Onboarding)
       Navigator.pushNamedAndRemoveUntil(context, '/onboarding', (route) => false);
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -72,7 +71,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Design System Colors
     final Color backgroundColor = const Color(0xFF0F172A);
     final Color primaryAccent = const Color(0xFF4FA2FF);
     final Color primaryText = const Color(0xFFFFFFFF);

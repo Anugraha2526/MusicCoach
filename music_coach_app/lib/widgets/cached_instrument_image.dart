@@ -3,13 +3,6 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../models/instrument_item.dart';
 
-/// A reusable widget for displaying instrument images with automatic fallback.
-/// 
-/// This widget follows Flutter best practices for dynamic images:
-/// - Uses cached_network_image for performance and offline support
-/// - Falls back to local SVG assets if network image fails or is unavailable
-/// - Shows loading placeholder while image loads
-/// - Handles errors gracefully
 class CachedInstrumentImage extends StatelessWidget {
   final InstrumentItem instrument;
   final double? width;
@@ -28,7 +21,6 @@ class CachedInstrumentImage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // If imageUrl from database exists and is not empty, use cached network image
     if (instrument.imageUrl != null && instrument.imageUrl!.isNotEmpty) {
       return CachedNetworkImage(
         imageUrl: instrument.imageUrl!,
@@ -45,18 +37,13 @@ class CachedInstrumentImage extends StatelessWidget {
             ),
           ),
         ),
-        errorWidget: (context, url, error) {
-          // Fallback to local SVG if network image fails
-          return _buildSvgFallback();
-        },
-        // Cache configuration
+        errorWidget: (context, url, error) => _buildSvgFallback(),
         memCacheWidth: width?.toInt(),
         memCacheHeight: height?.toInt(),
         maxWidthDiskCache: 200,
         maxHeightDiskCache: 200,
       );
     } else {
-      // Use local SVG asset as fallback
       return _buildSvgFallback();
     }
   }

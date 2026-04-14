@@ -8,18 +8,12 @@ import 'package:flutter_audio_capture/flutter_audio_capture.dart';
 import 'package:pitch_detector_dart/pitch_detector.dart';
 import 'guitar_headstock.dart';
 
-// ─── Music helpers ─────────────────────────────────────────────────────────────
-
-/// Convert a frequency in Hz to the nearest note name + cents offset
-/// Returns (noteName, cents) where cents is in [-50, 50]
 ({String note, double cents}) _frequencyToNote(double freq) {
   if (freq <= 0) return (note: '--', cents: 0.0);
   const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
-  // Distance in semitones from A4 (440 Hz)
   final semitones = 12 * (math.log(freq / 440.0) / math.log(2));
   final roundedSemitones = semitones.round();
   final cents = (semitones - roundedSemitones) * 100;
-  // MIDI note 69 = A4
   final midiNote = 69 + roundedSemitones;
   final noteName = noteNames[midiNote % 12];
   return (note: noteName, cents: cents);
@@ -36,7 +30,6 @@ class GuitarTunerScreen extends StatefulWidget {
 
 class _GuitarTunerScreenState extends State<GuitarTunerScreen>
     with SingleTickerProviderStateMixin {
-  // ── Audio Players for reference tones (SoLoud) ─────────────────────────────
   late SoLoud _soloud;
   final Map<int, AudioSource> _noteSources = {};
   SoundHandle? _currentSoundHandle;
@@ -60,24 +53,20 @@ class _GuitarTunerScreenState extends State<GuitarTunerScreen>
 
 
 
-  // ── String selection & tuned state ─────────────────────────────────────────
   int _selectedStringIndex = 0;
   bool _isTuned = false;
   DateTime? _stableStartTime;
 
-  // ── Needle smoothing (AnimationController drives repaints) ─────────────────
   late AnimationController _needleController;
-  static const double _smoothFactor = 0.25; // 0 = no smooth, 1 = no movement
+  static const double _smoothFactor = 0.25;
 
-  // ── Permission state ────────────────────────────────────────────────────────
   bool _micGranted = false;
 
   @override
   void initState() {
     super.initState();
-    _initAudioPlayers(); // async fire-and-forget; players ready before first tap
+    _initAudioPlayers();
 
-    // Drive smooth needle repaint at display refresh rate
     _needleController = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 1),
@@ -89,7 +78,6 @@ class _GuitarTunerScreenState extends State<GuitarTunerScreen>
   }
 
   void _smoothTick() {
-    // Lerp smoothed value toward raw value
     final newSmooth = _smoothCents + (_cents - _smoothCents) * _smoothFactor;
     if ((newSmooth - _smoothCents).abs() > 0.05) {
       setState(() => _smoothCents = newSmooth);
@@ -127,7 +115,6 @@ class _GuitarTunerScreenState extends State<GuitarTunerScreen>
     if (mounted) setState(() => _micGranted = true);
 
     try {
-      // Required: init() before start() in flutter_audio_capture v1.1+
       final initialized = await _audioCapture.init();
       if (initialized != true) return;
 
@@ -168,7 +155,6 @@ class _GuitarTunerScreenState extends State<GuitarTunerScreen>
   }
 
   void _updateTuningState(double cents) {
-    // Within 3 cents = in tune for our purposes
     if (cents.abs() < 3.0) {
       _stableStartTime ??= DateTime.now();
       if (DateTime.now().difference(_stableStartTime!).inSeconds >= 2) {
@@ -194,8 +180,6 @@ class _GuitarTunerScreenState extends State<GuitarTunerScreen>
     for (final source in _noteSources.values) {
       _soloud.disposeSource(source);
     }
-    // We optionally deinit the whole engine, or leave it alive for other screens.
-    // Piano lesson de-inits, so we will to prevent memory leaks if not reused soon.
     try {
       _soloud.deinit();
     } catch (_) {}
@@ -210,15 +194,13 @@ class _GuitarTunerScreenState extends State<GuitarTunerScreen>
       _cents = 0.0;
       _smoothCents = 0.0;
     });
-    
-    // Stop the previous note if it's still playing
+
     if (_currentSoundHandle != null) {
       try {
         _soloud.stop(_currentSoundHandle!);
       } catch (_) {}
     }
 
-    // Play the new note
     if (_noteSources.containsKey(index)) {
       _currentSoundHandle = await _soloud.play(_noteSources[index]!, volume: 1.0);
     }
@@ -274,23 +256,20 @@ class _GuitarTunerScreenState extends State<GuitarTunerScreen>
   }
 
   Widget _buildTunerDisplay() {
-    // Normalised needle position: -1.0 (flat) → 0.0 (centre) → +1.0 (sharp)
     final needlePos = (_smoothCents / 50.0).clamp(-1.0, 1.0);
     final isInTune = _smoothCents.abs() < 5.0 && _currentPitch > 0;
 
-    // Label for current string
     final stringLabel = _notes[_selectedStringIndex];
 
-    // Colour for needle / cent text
     Color accentColor;
     if (_currentPitch <= 0) {
       accentColor = Colors.white38;
     } else if (isInTune) {
-      accentColor = const Color(0xFF4CAF50); // green
+      accentColor = const Color(0xFF4CAF50);
     } else if (_smoothCents < 0) {
-      accentColor = const Color(0xFF42A5F5); // blue = flat
+      accentColor = const Color(0xFF42A5F5);
     } else {
-      accentColor = const Color(0xFFEF5350); // red = sharp
+      accentColor = const Color(0xFFEF5350);
     }
 
     return Padding(
@@ -387,10 +366,8 @@ class _GuitarTunerScreenState extends State<GuitarTunerScreen>
   }
 }
 
-// ─── Needle Painter ────────────────────────────────────────────────────────────
-
 class TunerNeedlePainter extends CustomPainter {
-  final double value;      // -1.0 (full flat) → 0.0 (centre) → +1.0 (full sharp)
+  final double value;
   final bool isInTune;
   final Color accentColor;
 
@@ -405,17 +382,15 @@ class TunerNeedlePainter extends CustomPainter {
     final w = size.width;
     final h = size.height;
     final cx = w / 2;
-    final pivotY = h + h * 0.3; // pivot below the canvas for a realistic pendulum arc
+    final pivotY = h + h * 0.3;
 
-    // ── Tick marks ─────────────────────────────────────────────────────────
     final tickPaint = Paint()
       ..color = Colors.white24
       ..strokeWidth = 1.5
       ..strokeCap = StrokeCap.round;
 
-    // Draw 11 tick marks: -50, -40, ..., 0, ..., +50 cents
     for (int i = -5; i <= 5; i++) {
-      final tickFrac = i / 5.0; // -1.0 to 1.0
+      final tickFrac = i / 5.0;
       final maxAngle = 30 * math.pi / 180;
       final angle = tickFrac * maxAngle;
       final tickLen = i == 0 ? 18.0 : (i.abs() == 5 ? 14.0 : 9.0);
@@ -424,7 +399,6 @@ class TunerNeedlePainter extends CustomPainter {
       final endX = cx + lineLen * math.sin(angle);
       final endY = pivotY - lineLen * math.cos(angle);
 
-      // Direction vector from pivot to tick endpoint
       final dx = endX - cx;
       final dy = endY - pivotY;
       final mag = math.sqrt(dx * dx + dy * dy);
@@ -438,7 +412,6 @@ class TunerNeedlePainter extends CustomPainter {
       );
     }
 
-    // ── Arc guide ──────────────────────────────────────────────────────────
     final arcRadius = (pivotY - h * 0.1).toDouble();
     final arcRect = Rect.fromCircle(
         center: Offset(cx, pivotY), radius: arcRadius);
@@ -454,7 +427,6 @@ class TunerNeedlePainter extends CustomPainter {
         ..strokeWidth = 1.0,
     );
 
-    // ── Needle ─────────────────────────────────────────────────────────────
     final currentAngle = value * maxAngle;
     final needleLen = pivotY - h * 0.05;
 
@@ -470,14 +442,12 @@ class TunerNeedlePainter extends CustomPainter {
         ..strokeCap = StrokeCap.round,
     );
 
-    // ── Pivot dot ──────────────────────────────────────────────────────────
     canvas.drawCircle(
       Offset(cx, pivotY),
       5,
       Paint()..color = accentColor,
     );
 
-    // ── Tip dot ────────────────────────────────────────────────────────────
     canvas.drawCircle(
       Offset(tipX, tipY),
       isInTune ? 9 : 6,
