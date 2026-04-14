@@ -10,11 +10,17 @@ class AuthService {
   static const String _showLessonsFirstKey = 'show_lessons_first';
 
   // -------------------- Registration --------------------
-  static Future<bool> register(String email, String password, String username) async {
+  static Future<bool> register(String email, String password, String username, String firstName, String lastName) async {
     final response = await http.post(
       Uri.parse(ApiConfig.register),
       headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({'email': email, 'password': password, 'username': username}),
+      body: jsonEncode({
+        'email': email, 
+        'password': password, 
+        'username': username,
+        'first_name': firstName,
+        'last_name': lastName
+      }),
     );
 
     if (response.statusCode == 201) {
@@ -242,11 +248,16 @@ class AuthService {
     return response.statusCode == 200;
   }
 
-  static Future<bool> updateProfile(String username, String email, {double? naturalPitch}) async {
+  static Future<bool> updateProfile(String username, String email, String firstName, String lastName, {double? naturalPitch}) async {
     final token = await getToken();
     if (token == null) return false;
 
-    final Map<String, dynamic> bodyData = {'username': username, 'email': email};
+    final Map<String, dynamic> bodyData = {
+      'username': username, 
+      'email': email,
+      'first_name': firstName,
+      'last_name': lastName,
+    };
     if (naturalPitch != null) {
       bodyData['natural_pitch'] = naturalPitch;
     }
