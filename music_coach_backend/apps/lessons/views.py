@@ -219,9 +219,10 @@ class GenerateFeedbackView(APIView):
 
         try:
             star_label = {3: "3 out of 3 (perfect)", 2: "2 out of 3", 1: "1 out of 3"}.get(stars, "some")
+            instrument = request.data.get("instrument", "music")
             prompt = (
                 f"Write exactly one short, enthusiastic, and motivating sentence of feedback "
-                f"for a music student who just finished a lesson and earned {star_label} stars. "
+                f"for a {instrument} student who just finished a lesson and earned {star_label} stars. "
                 f"Do not include any extra commentary, just the sentence itself."
             )
 
@@ -229,7 +230,8 @@ class GenerateFeedbackView(APIView):
             payload = json.dumps({
                 "model": "Qwen/Qwen2.5-7B-Instruct-Turbo",
                 "messages": [{"role": "user", "content": prompt}],
-                "max_tokens": 80
+                "max_tokens": 80,
+                "temperature": 0.85
             }).encode("utf-8")
 
             req_headers = {
