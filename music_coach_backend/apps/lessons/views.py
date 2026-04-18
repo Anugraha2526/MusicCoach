@@ -211,10 +211,49 @@ class GenerateFeedbackView(APIView):
 
     def post(self, request):
         import random as _random
+        import json
+        import http.client
+        from django.conf import settings
 
         stars = request.data.get("stars", None)
+
+        try:
+            star_label = {3: "3 out of 3 (perfect)", 2: "2 out of 3", 1: "1 out of 3"}.get(stars, "some")
+            prompt = (
+                f"Write exactly one short, enthusiastic, and motivating sentence of feedback "
+                f"for a music student who just finished a lesson and earned {star_label} stars. "
+                f"Do not include any extra commentary, just the sentence itself."
+            )
+
+            api_key = getattr(settings, 'HUGGINGFACE_API_KEY', '')
+            payload = json.dumps({
+                "model": "Qwen/Qwen2.5-7B-Instruct-Turbo",
+                "messages": [{"role": "user", "content": prompt}],
+                "max_tokens": 80
+            }).encode("utf-8")
+
+            req_headers = {
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json",
+            }
+
+            conn = http.client.HTTPSConnection("router.huggingface.co", timeout=5)
+            conn.request("POST", "/together/v1/chat/completions", payload, req_headers)
+            res = conn.getresponse()
+            body = res.read().decode("utf-8")
+            conn.close()
+
+            if res.status == 200:
+                data = json.loads(body)
+                generated_message = data["choices"][0]["message"]["content"].strip()
+                if generated_message and len(generated_message) > 5:
+                    return Response({"message": generated_message, "source": "ai"})
+        except Exception:
+            pass
+
+        # Fallback to local randomized lists based on performance
         fallback_list = self.FALLBACKS.get(stars, self.FALLBACKS[None])
         message = _random.choice(fallback_list)
 
-        return Response({"message": message})
+        return Response({"message": message, "source": "fallback"})
 
