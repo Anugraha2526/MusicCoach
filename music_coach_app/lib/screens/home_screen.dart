@@ -26,7 +26,6 @@ class _HomeScreenState extends State<HomeScreen> {
   Map<String, int> _totalLessonsMap = {};
   Map<String, int> _completedLessonsMap = {};
 
-  // Color mapping for different instrument types
   final Map<String, Color> _colorMap = {
     'piano': const Color(0xFF00B4D8),
     'vocals': const Color(0xFF6C5CE7),
@@ -35,7 +34,6 @@ class _HomeScreenState extends State<HomeScreen> {
     'pitch': const Color(0xFFFF006E),
   };
 
-  // Description mapping for instruments (fallback)
   final Map<String, String> _descriptionMap = {
     'piano': 'Loading...',
     'vocals': 'Loading...',
@@ -51,7 +49,6 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _loadData() async {
-    // Load user profile for username
     final profile = await AuthService.fetchProfile();
     if (profile != null) {
       setState(() {
@@ -60,11 +57,8 @@ class _HomeScreenState extends State<HomeScreen> {
       });
     }
 
-    // Load instruments
     try {
       final fetchedInstruments = await InstrumentService.fetchInstruments();
-      
-      // Load progress map
       final completedIds = await ProgressService.getCompletedLessons();
       Map<String, int> totalMap = {};
       Map<String, int> completedMap = {};
@@ -86,7 +80,7 @@ class _HomeScreenState extends State<HomeScreen> {
             totalMap[instrument.type] = total;
             completedMap[instrument.type] = completedCount;
           } catch (e) {
-            print('Error fetching lessons for ${instrument.type}: $e');
+            // Skip instruments that fail to load lesson count
           }
         }
       }
@@ -133,13 +127,11 @@ class _HomeScreenState extends State<HomeScreen> {
 
     final typeLower = instrument.type.toLowerCase();
     
-    // For piano and vocals, switch to lessons tab in MainLayout
     if (typeLower == 'piano' || typeLower == 'vocals' || typeLower == 'vocal') {
       widget.onLessonTap?.call(instrument.type);
     } else {
-      // For guitar and pitch, push a new route (will show back button)
       Navigator.pushNamed(context, instrument.route).then((_) {
-        if (mounted) _loadData(); // Refresh when returning just in case
+        if (mounted) _loadData();
       });
     }
   }

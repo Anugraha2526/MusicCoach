@@ -27,8 +27,7 @@ class _RealtimePitchGraphScreenState extends State<RealtimePitchGraphScreen> wit
   bool _isPlaying = false;
   Timer? _pollingTimer;
   
-  // High density point tracking for smooth paths
-  final List<double?> _pitchHistory = []; 
+  final List<double?> _pitchHistory = [];
   final int maxPoints = 150;  
   
   final _audioCapture = FlutterAudioCapture();
@@ -38,8 +37,7 @@ class _RealtimePitchGraphScreenState extends State<RealtimePitchGraphScreen> wit
   double? _currentMidiVal;
   double? _smoothedMidiVal;
   
-  // Smoothly center the graph. 
-  double _currentCenterMidi = 55.0; // Starts around G3 (Midi 55)
+  double _currentCenterMidi = 55.0;
 
   late AnimationController _repaintController;
   
@@ -58,7 +56,6 @@ class _RealtimePitchGraphScreenState extends State<RealtimePitchGraphScreen> wit
       _pitchHistory.add(null);
     }
     
-    // 60 fps repaint for butter-smooth visual scrolling independent of polling logic
     _repaintController = AnimationController(
         vsync: this, duration: const Duration(seconds: 1))..repeat();
   }
@@ -153,10 +150,9 @@ class _RealtimePitchGraphScreenState extends State<RealtimePitchGraphScreen> wit
   Future<void> _saveHistory() async {
     if (_fullSessionHistory.isEmpty || _sessionStartTime == null) return;
     final duration = DateTime.now().difference(_sessionStartTime!).inMilliseconds / 1000.0;
-    if (duration < 2.0) return; // Ignore very short clicks
-    
+    if (duration < 2.0) return;
+
     var data = List<double?>.from(_fullSessionHistory);
-    // Trim leading null gap before speaking, but retain 30 ticks (about 0.6s) as padding
     int firstValidIndex = data.indexWhere((val) => val != null);
     if (firstValidIndex != -1) {
       int startIndex = math.max(0, firstValidIndex - 30);
@@ -179,7 +175,6 @@ class _RealtimePitchGraphScreenState extends State<RealtimePitchGraphScreen> wit
           'pitch_data': data,
         }),
       );
-      // Fetch latest so the list view is ready
       _fetchHistory();
     } catch (_) {}
   }
@@ -188,7 +183,6 @@ class _RealtimePitchGraphScreenState extends State<RealtimePitchGraphScreen> wit
     setState(() {
       _isPlaying = !_isPlaying;
       if (_isPlaying) {
-        // If resuming or starting fresh
         if (_fullSessionHistory.isEmpty) {
           _pitchHistory.clear();
           for (int i = 0; i < maxPoints; i++) {
@@ -198,14 +192,13 @@ class _RealtimePitchGraphScreenState extends State<RealtimePitchGraphScreen> wit
         }
         _showHistory = false;
         _selectedHistoryRecord = null;
-        
+
         _startTimer();
         _startListening();
       } else {
-        // Pause logic (do not clear history or save)
         _stopTimer();
         _stopListening();
-        _currentMidiVal = null; 
+        _currentMidiVal = null;
         _smoothedMidiVal = null;
       }
     });
@@ -237,15 +230,11 @@ class _RealtimePitchGraphScreenState extends State<RealtimePitchGraphScreen> wit
   }
 
   void _startTimer() {
-    // High-frequency invisible polling pushed to array (~45 times a second). 
-    // We do NOT call setState here to avoid laggy main thread locking.
     _pollingTimer = Timer.periodic(const Duration(milliseconds: 22), (timer) {
-        
         if (_currentMidiVal != null) {
           if (_smoothedMidiVal == null) {
              _smoothedMidiVal = _currentMidiVal;
           } else {
-             // Powerful EMA smoothing to wipe out pitch signal jitter
              _smoothedMidiVal = _smoothedMidiVal! + (_currentMidiVal! - _smoothedMidiVal!) * 0.15;
           }
         } else {
@@ -254,17 +243,14 @@ class _RealtimePitchGraphScreenState extends State<RealtimePitchGraphScreen> wit
 
         _pitchHistory.add(_smoothedMidiVal);
         _fullSessionHistory.add(_smoothedMidiVal);
-        if (_pitchHistory.length > maxPoints) { 
-          _pitchHistory.removeAt(0); 
+        if (_pitchHistory.length > maxPoints) {
+          _pitchHistory.removeAt(0);
         }
-        
-        // Let the painter gracefully handle drawing smoothly across these dense points
-        
+
         double? targetCenter;
         if (_smoothedMidiVal != null) {
            targetCenter = _smoothedMidiVal!;
         } else {
-           // Find last known value to continue centering on it
            for (int i = _pitchHistory.length - 1; i >= 0; i--) {
               if (_pitchHistory[i] != null) {
                   targetCenter = _pitchHistory[i]!;
@@ -275,9 +261,7 @@ class _RealtimePitchGraphScreenState extends State<RealtimePitchGraphScreen> wit
 
         if (targetCenter != null) {
           final double diff = targetCenter - _currentCenterMidi;
-          // Only adjust if out of deadzone
           if (diff.abs() > 1.0) {
-              // Dynamic speed: faster when further away
               double speedFactor = 0.08 + (diff.abs() * 0.015);
               speedFactor = speedFactor.clamp(0.08, 0.4);
               _currentCenterMidi += diff * speedFactor;
@@ -413,9 +397,6 @@ class _RealtimePitchGraphScreenState extends State<RealtimePitchGraphScreen> wit
       }
     }
     
-    // Calculate required width: e.g. 5 pixels per point for smooth panning 
-    // or just let the painter figure it out but painter needs Size.
-    // If pointCount is 1000, and 4 points per unit, width is 4000
     final pointCount = pitchData.length;
     final double desiredWidth = math.max(MediaQuery.of(context).size.width, pointCount * 8.0);
     
@@ -698,7 +679,6 @@ class PitchGraphPainter extends CustomPainter {
       textAlign: TextAlign.left,
     );
 
-    // 1. Draw horizontal lines and note labels
     for (int midi = bottomMidi; midi <= topMidi; midi++) {
         final double y = ((centerMidi + semitoneSpan / 2) - midi) * semitoneHeight;
 
@@ -725,26 +705,23 @@ class PitchGraphPainter extends CustomPainter {
       ..strokeCap = StrokeCap.round;
 
     final graphPath = Path();
-    
-    // Calculate valid consecutive segments of lines 
-    // to draw smooth splines without connecting across null gaps
+
     final List<List<Offset>> segments = [];
     List<Offset> currentSegment = [];
-    
+
     final int pointCount = pitchHistory.length;
     final double dx = graphWidth / (pointCount - 1);
-    
+
     Offset? lastValidOffset;
 
     for (int i = 0; i < pointCount; i++) {
       final double? val = pitchHistory[i];
       if (val != null) {
         final double y = ((centerMidi + semitoneSpan / 2) - val) * semitoneHeight;
-        
-        // Shift left continuously based on paint sub-frame
+
         double x = dx * i - (isPlaying ? (tickProgress * dx) : 0);
-        if (x < 0) x = 0; 
-        
+        if (x < 0) x = 0;
+
         final pt = Offset(x, y);
         currentSegment.add(pt);
         lastValidOffset = pt;
@@ -758,39 +735,34 @@ class PitchGraphPainter extends CustomPainter {
     if (currentSegment.isNotEmpty) {
       segments.add(currentSegment);
     }
-    
-    // Draw each contiguous non-null segment as a smooth spline
+
     for (var segment in segments) {
       if (segment.length == 1) {
          graphPath.moveTo(segment[0].dx, segment[0].dy);
-         graphPath.lineTo(segment[0].dx + 1, segment[0].dy); // draw dot
+         graphPath.lineTo(segment[0].dx + 1, segment[0].dy);
       } else if (segment.length == 2) {
          graphPath.moveTo(segment[0].dx, segment[0].dy);
          graphPath.lineTo(segment[1].dx, segment[1].dy);
       } else {
          graphPath.moveTo(segment[0].dx, segment[0].dy);
-         // Generate flawlessly smooth curves using quadratic midpoint approximations
-         // This eliminates 90-degree jagged staircase angles
          for (int i = 0; i < segment.length - 1; i++) {
             final p0 = segment[i];
             final p1 = segment[i + 1];
-            
+
             final midPoint = Offset((p0.dx + p1.dx) / 2, (p0.dy + p1.dy) / 2);
-            
+
             if (i == 0) {
                graphPath.lineTo(midPoint.dx, midPoint.dy);
             } else {
                graphPath.quadraticBezierTo(p0.dx, p0.dy, midPoint.dx, midPoint.dy);
             }
          }
-         // finish the line to the last actual point
          graphPath.lineTo(segment.last.dx, segment.last.dy);
       }
     }
-    
+
     canvas.drawPath(graphPath, pathPaint);
 
-    // 3. Draw the smoothly moving ball
     double leadY = size.height / 2;
     if (lastValidOffset != null) {
       leadY = lastValidOffset.dy;

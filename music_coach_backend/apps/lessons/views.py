@@ -16,9 +16,6 @@ from rest_framework.permissions import IsAuthenticated
 
 
 class BaseLessonsView(APIView):
-    """
-    Base view for fetching all lesson modules.
-    """
     def get(self, request):
         instrument_type = request.query_params.get('instrument')
         modules = Module.objects.all()
@@ -29,9 +26,6 @@ class BaseLessonsView(APIView):
 
 
 class PitchHistoryListCreateView(APIView):
-    """
-    List user's pitch history or create a new entry.
-    """
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
@@ -49,9 +43,6 @@ class PitchHistoryListCreateView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 class PitchHistoryDetailView(APIView):
-    """
-    Retrieve or delete a specific pitch history.
-    """
     permission_classes = [IsAuthenticated]
 
     def delete(self, request, pk):
@@ -62,9 +53,6 @@ class PitchHistoryDetailView(APIView):
 
 
 class LessonDetailView(APIView):
-    """
-    Fetch details for a specific lesson.
-    """
     def get(self, request, lesson_id):
         try:
             lesson = Lesson.objects.get(pk=lesson_id)
@@ -78,9 +66,6 @@ class LessonDetailView(APIView):
 
 
 class LessonSequencesView(APIView):
-    """
-    Get all practice sequences for a specific lesson.
-    """
     def get(self, request, lesson_id):
         lesson = get_object_or_404(Lesson, pk=lesson_id)
         sequences = PracticeSequence.objects.filter(lesson=lesson)
@@ -89,47 +74,35 @@ class LessonSequencesView(APIView):
 
 
 class GetProgressView(APIView):
-    """
-    Get the currently logged-in user's completed lessons.
-    """
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
         progress = UserProgress.objects.filter(user=request.user).first()
         if not progress:
             progress = UserProgress.objects.create(user=request.user)
-        
-        # Aggregate all unique completed lesson IDs just in case there are multiple progress objects
+
         from apps.lessons.models import Lesson
         completed_ids = list(Lesson.objects.filter(completed_by__user=request.user).distinct().values_list('id', flat=True))
         return Response({'completed_lesson_ids': completed_ids})
 
 
 class SyncProgressView(APIView):
-    """
-    Sync lessons from the client to the backend.
-    Accepts a list of lesson IDs and adds them to the user's progress.
-    After saving, broadcasts updated stats to all admin dashboard WebSocket clients.
-    """
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
         lesson_ids = request.data.get('lesson_ids', [])
         if not isinstance(lesson_ids, list):
             return Response({"error": "lesson_ids must be a list"}, status=status.HTTP_400_BAD_REQUEST)
-        
+
         progress = UserProgress.objects.filter(user=request.user).first()
         if not progress:
             progress = UserProgress.objects.create(user=request.user)
-        
-        # Add the lessons to the progress
+
         valid_lessons = Lesson.objects.filter(id__in=lesson_ids)
         progress.completed_lessons.add(*valid_lessons)
-        
-        # Broadcast updated stats to all admin WebSocket clients
+
         self._broadcast_stats()
-        
-        # Return updated list
+
         from apps.lessons.models import Lesson as L
         completed_ids = list(L.objects.filter(completed_by__user=request.user).distinct().values_list('id', flat=True))
         return Response({'completed_lesson_ids': completed_ids})
@@ -177,7 +150,7 @@ class SyncProgressView(APIView):
 
             total_completed = piano_completed + vocal_completed
 
-            # Per-user lesson counts for the Users page
+            # Per-user data for admin
             from apps.accounts.serializers import AdminUserSerializer
             users_qs = User.objects.prefetch_related(
                 'progress__completed_lessons__module__instrument'
@@ -204,9 +177,8 @@ class SyncProgressView(APIView):
                 STATS_GROUP,
                 {"type": "stats_update", "data": stats_payload},
             )
-        except Exception as e:
-            # Don't let WS broadcast failure break the API response
-            print(f"[WebSocket broadcast error] {e}")
+        except Exception:
+            pass
 
 
 class GenerateFeedbackView(APIView):

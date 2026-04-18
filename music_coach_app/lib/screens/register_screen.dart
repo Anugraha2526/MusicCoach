@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
+import '../utils/validators.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -12,16 +13,36 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final emailController = TextEditingController();
   final usernameController = TextEditingController();
   final passwordController = TextEditingController();
+  final firstNameController = TextEditingController();
+  final lastNameController = TextEditingController();
   bool _isLoading = false;
   bool _obscurePassword = true;
 
   void handleRegister() async {
+    if (firstNameController.text.trim().isEmpty || 
+        lastNameController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please fill all fields')),
+      );
+      return;
+    }
+
+    final passwordError = Validators.validatePassword(passwordController.text);
+    if (passwordError != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(passwordError)),
+      );
+      return;
+    }
+
     setState(() => _isLoading = true);
 
     bool success = await AuthService.register(
       emailController.text,
       passwordController.text,
       usernameController.text,
+      firstNameController.text,
+      lastNameController.text,
     );
 
     setState(() => _isLoading = false);
@@ -30,7 +51,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Registration successful!')),
       );
-      // Navigate to Instrument Selection (Onboarding)
       Navigator.pushNamedAndRemoveUntil(context, '/onboarding', (route) => false);
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -44,12 +64,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
     emailController.dispose();
     usernameController.dispose();
     passwordController.dispose();
+    firstNameController.dispose();
+    lastNameController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    // Design System Colors
     final Color backgroundColor = const Color(0xFF0F172A);
     final Color primaryAccent = const Color(0xFF4FA2FF);
     final Color primaryText = const Color(0xFFFFFFFF);
@@ -96,6 +117,50 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 32),
+
+              // First Name Field
+              TextField(
+                controller: firstNameController,
+                style: TextStyle(color: primaryText),
+                decoration: InputDecoration(
+                  labelText: 'First Name',
+                  labelStyle: TextStyle(color: secondaryText),
+                  prefixIcon: Icon(Icons.person_outline, color: secondaryText),
+                  enabledBorder: OutlineInputBorder(
+                    borderSide: BorderSide(color: secondaryText.withOpacity(0.5)),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderSide: BorderSide(color: primaryAccent),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  filled: true,
+                  fillColor: Colors.white.withOpacity(0.05),
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // Last Name Field
+              TextField(
+                controller: lastNameController,
+                style: TextStyle(color: primaryText),
+                decoration: InputDecoration(
+                  labelText: 'Last Name',
+                  labelStyle: TextStyle(color: secondaryText),
+                  prefixIcon: Icon(Icons.person_outline, color: secondaryText),
+                  enabledBorder: OutlineInputBorder(
+                    borderSide: BorderSide(color: secondaryText.withOpacity(0.5)),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderSide: BorderSide(color: primaryAccent),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  filled: true,
+                  fillColor: Colors.white.withOpacity(0.05),
+                ),
+              ),
+              const SizedBox(height: 16),
 
               // Username Field
               TextField(

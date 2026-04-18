@@ -247,23 +247,16 @@ class _InteractivePianoLessonScreenState extends State<InteractivePianoLessonScr
   List<String> shuffledOptions = [];
 
   Future<void> _initAudio() async {
-    print('DEBUG: Starting SoLoud audio initialization');
-    
     try {
       _soloud = SoLoud.instance;
       
-      // Check if already initialized to prevent errors/race conditions during navigation
       if (!_soloud.isInitialized) {
-        await _soloud.init(bufferSize: 512);
-        print('DEBUG: SoLoud engine initialized (Low Latency Mode)');
-      } else {
-         print('DEBUG: SoLoud engine already initialized, reusing instance');
+        await _soloud.init(
+          sampleRate: 44100,
+          bufferSize: 512,
+        );
       }
       
-      // Pre-load all note sounds
-      // Reset map to ensure we have fresh handles if needed, though they might be valid.
-      // Better to clear and reload to be safe if context changed, or check validity.
-      // For simplicity/safety in this small app: reload.
       _noteSources.clear();
       
       final notes = ['C', 'D', 'E', 'F', 'G', 'A', 'B'];
@@ -274,31 +267,23 @@ class _InteractivePianoLessonScreenState extends State<InteractivePianoLessonScr
             mode: LoadMode.memory,
           );
         } catch (e) {
-           print('DEBUG: Failed to load note $note: $e');
         }
       }
-      print('DEBUG: All note sources loaded (${_noteSources.length} notes)');
-      
-      print('DEBUG: SoLoud audio initialization COMPLETED');
     } catch (e) {
-      print('DEBUG: SoLoud init error: $e');
     }
   }
 
   Future<void> _loadSequences() async {
     try {
-      // Ensure audio is ready BEFORE showing the lesson
       await _initAudio(); 
       
       final fetchedSequences = await LessonService.fetchLessonSequences(widget.lessonId);
       
-      // Pre-load audio BEFORE showing UI
-      sequences = fetchedSequences; // Update local state for the helper to usage
+      sequences = fetchedSequences; 
       await _loadBacktrackForLesson();
 
       if (mounted) {
         setState(() {
-          // sequences already set above, but setState needed to trigger build
           isLoading = false;
           errorMessage = null; 
         });
@@ -317,12 +302,10 @@ class _InteractivePianoLessonScreenState extends State<InteractivePianoLessonScr
   Future<void> _loadBacktrackForLesson() async {
     if (sequences.isEmpty) return;
     
-    // Clear existing
     if (_backtrackSource != null && _soloud.isInitialized) {
       try {
         await _soloud.disposeSource(_backtrackSource!);
       } catch (e) {
-        print('DEBUG: Error disposing backtrack: $e');
       }
       _backtrackSource = null;
     }
@@ -337,13 +320,10 @@ class _InteractivePianoLessonScreenState extends State<InteractivePianoLessonScr
               assetPath,
               mode: LoadMode.memory,
             );
-            print('DEBUG: Backtrack loaded: $assetPath');
           } catch (e) {
-            print('DEBUG: Info - Backtrack asset not found ($assetPath), silent mode. ($e)');
           }
       }
     } catch (e) {
-      print('DEBUG: Error deciding backtrack: $e');
     }
   }
 
@@ -352,7 +332,6 @@ class _InteractivePianoLessonScreenState extends State<InteractivePianoLessonScr
     
     final currentSeq = sequences[currentSequenceIndex];
     
-    // Shuffle options for Identify mode to ensure they aren't right below target
     List<String> options = [];
     if (currentSeq.type == 'identify') {
       options = List.from(currentSeq.notes);
@@ -363,14 +342,12 @@ class _InteractivePianoLessonScreenState extends State<InteractivePianoLessonScr
        currentInput = [];
        identifiedNotes = {};
        highlightedKey = null;
-       _pressedNote = null; // Clear persisted key color for next unit
+       _pressedNote = null; 
        shuffledOptions = options;
        
-       // Reset tap mode state
        _tapFilledCount = 0;
        _tapCooldown = false;
        
-       // Reset play mode state
        if (currentSeq.type == 'play' || currentSeq.type == 'perform') {
          currentNoteIndex = 0;
          wrongNote = null;
@@ -381,21 +358,14 @@ class _InteractivePianoLessonScreenState extends State<InteractivePianoLessonScr
        }
     });
 
-    // Auto-play only for 'listen' mode
     if (currentSeq.type == 'listen') {
        Future.delayed(const Duration(milliseconds: 1000), _playCurrentSequenceAudio);
     } else if (currentSeq.type == 'learn') {
-       // Highlight the note to learn immediately
        if (currentSeq.notes.isNotEmpty) {
           setState(() => highlightedKey = currentSeq.notes.first);
        }
     } else if (currentSeq.type == 'play' || currentSeq.type == 'perform') {
-       // Backtrack audio starts on first note input now (in _handlePlayModeInput)
-       
-       // Highlight the first note immediately if it's not a rest
        if (currentSeq.notes.isNotEmpty) {
-          // In perform mode, we might want to start automatically? 
-          // For now, let's keep it consistent: start on first tap.
           if (currentSeq.notes.first == '-') {
              _startSmoothScroll();
           } else {
@@ -405,12 +375,9 @@ class _InteractivePianoLessonScreenState extends State<InteractivePianoLessonScr
     }
   }
 
-  // Dynamic Scroll Duration
-  // Default: 1189ms (Hot Cross Buns)
-  // Work Song (Level 2 Lesson 2): 1400ms (Slower for learning)
   int get _lessonScrollDuration {
     final config = _resolveLessonConfig();
-    return config?.scrollDurationMs ?? 1189; // Default for unknown lessons
+    return config?.scrollDurationMs ?? 1189; 
   }
 
   @override
@@ -418,7 +385,6 @@ class _InteractivePianoLessonScreenState extends State<InteractivePianoLessonScr
     SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     
-    // Dispose SoLoud resources
     if (_backtrackSource != null) {
       _soloud.disposeSource(_backtrackSource!);
     }
@@ -434,17 +400,9 @@ class _InteractivePianoLessonScreenState extends State<InteractivePianoLessonScr
   }
 
   Future<void> _startNote(String note) async {
-    // Instant playback with SoLoud (< 10ms latency)
     if (_noteSources.containsKey(note)) {
-      // Fire-and-forget: Don't await the result to keep UI thread unblocked
-      // print('DEBUG: Playing note $note'); // Optional: Uncomment if needed
       _soloud.play(_noteSources[note]!, volume: 1.0);
-    } else {
-      print('DEBUG: Note source not found for $note');
     }
-    
-    // Only for Read modes
-    // _startDurationTimer(note); // REMOVED: Managed explicitly in onKeyTapDown to avoid auto-play triggering input
   }
 
   void _stopNote(String note) {

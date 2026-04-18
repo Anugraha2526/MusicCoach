@@ -16,18 +16,14 @@ class PianoLessonScreen extends StatefulWidget {
 class _PianoLessonScreenState extends State<PianoLessonScreen>
     with TickerProviderStateMixin {
   int? selectedLessonIndex;
-  // Initialize with a very large offset to start at the bottom (Level 1 & 2)
-  // The actual maxScrollExtent will clamp this value automatically
   final ScrollController _scrollController = ScrollController(initialScrollOffset: 100000);
 
-  // Piano color
   final Color _pianoColor = const Color(0xFF00B4D8);
 
   List<LessonModule> _backendModules = [];
   bool _isLoading = true;
   Set<int> _completedLessons = {};
 
-  // Generate all lessons placeholders (Level 1 first, going up to Level 5)
   List<LessonPlaceholder> get _lessonPlaceholders {
     final placeholders = <LessonPlaceholder>[];
     for (int level = 1; level <= 5; level++) {
@@ -44,7 +40,6 @@ class _PianoLessonScreenState extends State<PianoLessonScreen>
   @override
   void initState() {
     super.initState();
-    // Enforce portrait mode when entering this screen
     SystemChrome.setPreferredOrientations([
       DeviceOrientation.portraitUp,
     ]);
@@ -71,7 +66,6 @@ class _PianoLessonScreenState extends State<PianoLessonScreen>
           _isLoading = false;
         });
       }
-      print('DEBUG: Error loading lessons: $e');
     }
   }
 
@@ -509,6 +503,8 @@ class _AnimatedLessonButtonState extends State<_AnimatedLessonButton> with Singl
 
   @override
   Widget build(BuildContext context) {
+    final Color currentColor = widget.isCompleted ? Colors.green : widget.pianoColor;
+
     return SizedBox(
       width: 180, // Increased container for button + text & popup
       child: Column(
@@ -525,17 +521,17 @@ class _AnimatedLessonButtonState extends State<_AnimatedLessonButton> with Singl
                 height: 70,
                 decoration: BoxDecoration(
                   color: widget.isAvailable 
-                      ? (widget.isSelected ? Colors.white : widget.pianoColor)
+                      ? (widget.isSelected ? Colors.white : currentColor)
                       : const Color(0xFF1E293B),
                   shape: BoxShape.circle,
                   border: Border.all(
-                    color: widget.isSelected ? widget.pianoColor : Colors.white24,
+                    color: widget.isSelected ? currentColor : Colors.white24,
                     width: 3,
                   ),
                   boxShadow: widget.isSelected
                       ? [
                           BoxShadow(
-                            color: widget.pianoColor.withOpacity(0.4),
+                            color: currentColor.withOpacity(0.4),
                             blurRadius: 20,
                             spreadRadius: 4,
                           ),
@@ -544,7 +540,7 @@ class _AnimatedLessonButtonState extends State<_AnimatedLessonButton> with Singl
                 ),
                 child: Icon(
                   widget.isCompleted ? Icons.check : (widget.isAvailable ? Icons.music_note : Icons.lock_outline),
-                  color: widget.isSelected && widget.isAvailable ? widget.pianoColor : Colors.white,
+                  color: widget.isSelected && widget.isAvailable ? currentColor : Colors.white,
                   size: 28,
                 ),
               ),
@@ -557,7 +553,7 @@ class _AnimatedLessonButtonState extends State<_AnimatedLessonButton> with Singl
               decoration: BoxDecoration(
                 color: const Color(0xFF1E293B),
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: widget.pianoColor.withOpacity(0.5), width: 1.5),
+                border: Border.all(color: currentColor.withOpacity(0.5), width: 1.5),
                 boxShadow: [
                   BoxShadow(
                     color: Colors.black.withOpacity(0.3),
@@ -584,7 +580,7 @@ class _AnimatedLessonButtonState extends State<_AnimatedLessonButton> with Singl
                   ElevatedButton(
                     onPressed: widget.onStart,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: widget.pianoColor,
+                      backgroundColor: currentColor,
                       foregroundColor: Colors.white,
                       minimumSize: const Size(double.infinity, 44), // Taller button
                       shape: RoundedRectangleBorder(
