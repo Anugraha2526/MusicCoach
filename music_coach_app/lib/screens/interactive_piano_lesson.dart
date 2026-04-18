@@ -1112,7 +1112,22 @@ class _InteractivePianoLessonScreenState extends State<InteractivePianoLessonScr
     if (isLoading) return const Scaffold(backgroundColor: Color(0xFF1E293B), body: Center(child: CircularProgressIndicator(color: Color(0xFF4FA2FF))));
     if (errorMessage != null) return Scaffold(backgroundColor: Color(0xFF1E293B), body: Center(child: Padding(padding: const EdgeInsets.all(32), child: Text(errorMessage!, textAlign: TextAlign.center, style: const TextStyle(color: Colors.white70, fontSize: 16)))));
     if (isLessonComplete) return _buildCompletionScreen();
-    if (sequences.isEmpty) return const Scaffold(backgroundColor: Color(0xFF1E293B), body: Center(child: Text("No data")));
+    if (sequences.isEmpty) {
+      return Scaffold(
+        backgroundColor: const Color(0xFF1E293B),
+        appBar: AppBar(backgroundColor: Colors.transparent, elevation: 0),
+        body: const Center(
+          child: Padding(
+            padding: EdgeInsets.all(24.0),
+            child: Text(
+              "This lesson currently has no practice sequences.\nCheck the admin dashboard to add some!",
+              style: TextStyle(color: Colors.white, fontSize: 18, height: 1.5),
+              textAlign: TextAlign.center,
+            ),
+          )
+        )
+      );
+    }
     
     // Safety check for completion state (when animating 100% bar)
     final safeIndex = currentSequenceIndex >= sequences.length ? sequences.length - 1 : currentSequenceIndex;

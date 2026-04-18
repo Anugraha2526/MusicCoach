@@ -94,10 +94,20 @@ const LessonModal = ({ isOpen, onClose, onSave, lesson, modules }) => {
     };
 
     const addSequence = () => {
+        const nextOrder = sequences.length > 0 ? Math.max(...sequences.map(s => parseInt(s.order) || 0)) + 1 : 1;
+        if (nextOrder > 10) {
+            setError("Cannot add sequence: Order would be greater than 10.");
+            return;
+        }
+        setError('');
+
+        const selectedModule = modules.find(m => String(m.id) === String(formData.module));
+        const isVocal = selectedModule?.instrument_name?.toLowerCase().includes('vocal');
+
         setSequences([...sequences, {
-            sequence_type: 'listen',
-            order: sequences.length + 1,
-            notes: '[\n  "C3", "=", "-", "-", "-", "-", "-", "-"\n]',
+            sequence_type: isVocal ? 'perform' : 'listen',
+            order: nextOrder,
+            notes: '[\n  "C", "-", "-", "-"\n]',
             lyrics: '',
             time_signature: '4/4',
         }]);
@@ -111,6 +121,22 @@ const LessonModal = ({ isOpen, onClose, onSave, lesson, modules }) => {
         e.preventDefault();
         setLoading(true);
         setError('');
+
+        const orderSet = new Set();
+        for (let i = 0; i < sequences.length; i++) {
+            const ord = parseInt(sequences[i].order) || i + 1;
+            if (ord > 10) {
+                setError(`Sequence ${i + 1}: Order cannot be greater than 10.`);
+                setLoading(false);
+                return;
+            }
+            if (orderSet.has(ord)) {
+                setError(`Sequence ${i + 1}: Order ${ord} already exists. Each sequence must have a unique order.`);
+                setLoading(false);
+                return;
+            }
+            orderSet.add(ord);
+        }
 
         // Parse sequence notes/lyrics from JSON strings
         let parsedSequences;
@@ -150,6 +176,9 @@ const LessonModal = ({ isOpen, onClose, onSave, lesson, modules }) => {
             setLoading(false);
         }
     };
+
+    const selectedModule = modules.find(m => String(m.id) === String(formData.module));
+    const isVocal = selectedModule?.instrument_name?.toLowerCase().includes('vocal');
 
     return (
         <div className="modal-overlay" onClick={onClose}>
@@ -226,15 +255,16 @@ const LessonModal = ({ isOpen, onClose, onSave, lesson, modules }) => {
                                         <label>Type</label>
                                         <select value={seq.sequence_type}
                                             onChange={e => handleSeqChange(idx, 'sequence_type', e.target.value)}>
-                                            {SEQUENCE_TYPES.map(t => (
-                                                <option key={t.value} value={t.value}>{t.label}</option>
-                                            ))}
+                                            {SEQUENCE_TYPES.map(t => {
+                                                if (isVocal && t.value !== 'perform') return null;
+                                                return <option key={t.value} value={t.value}>{t.label}</option>;
+                                            })}
                                         </select>
                                     </div>
                                     <div className="form-group" style={{ flex: '0 0 80px' }}>
                                         <label>Order</label>
                                         <input type="number" value={seq.order}
-                                            onChange={e => handleSeqChange(idx, 'order', e.target.value)} min={1} />
+                                            onChange={e => handleSeqChange(idx, 'order', e.target.value)} min={1} max={10} />
                                     </div>
                                     <div className="form-group" style={{ flex: '0 0 90px' }}>
                                         <label>Time Sig.</label>

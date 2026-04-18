@@ -791,6 +791,23 @@ class _VocalLessonPerformScreenState extends State<VocalLessonPerformScreen> wit
     if (errorMessage != null) {
        return Scaffold(backgroundColor: const Color(0xFF0A1929), body: Center(child: Text(errorMessage!, style: const TextStyle(color: Colors.white))));
     }
+    
+    if (sequences.isEmpty) {
+      return Scaffold(
+        backgroundColor: const Color(0xFF0A1929),
+        appBar: AppBar(backgroundColor: Colors.transparent, elevation: 0),
+        body: const Center(
+          child: Padding(
+            padding: EdgeInsets.all(24.0),
+            child: Text(
+              "This lesson currently has no practice sequences.\nCheck the admin dashboard to add some!",
+              style: TextStyle(color: Colors.white, fontSize: 18, height: 1.5),
+              textAlign: TextAlign.center,
+            ),
+          )
+        )
+      );
+    }
 
     final List<String> notes = sequences.isNotEmpty ? sequences.first.notes.cast<String>() : <String>[];
 
