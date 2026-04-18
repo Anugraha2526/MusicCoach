@@ -24,9 +24,19 @@ class _PianoLessonScreenState extends State<PianoLessonScreen>
   bool _isLoading = true;
   Set<int> _completedLessons = {};
 
+  int get _maxLevel {
+    if (_backendModules.isEmpty) return 5;
+    int maxOrder = 0;
+    for (var module in _backendModules) {
+      if (module.order > maxOrder) maxOrder = module.order;
+    }
+    return maxOrder < 5 ? 5 : maxOrder;
+  }
+
   List<LessonPlaceholder> get _lessonPlaceholders {
     final placeholders = <LessonPlaceholder>[];
-    for (int level = 1; level <= 5; level++) {
+    final limit = _maxLevel;
+    for (int level = 1; level <= limit; level++) {
       for (int lessonIndex = 0; lessonIndex < 5; lessonIndex++) {
         placeholders.add(LessonPlaceholder(
           level: level,
@@ -212,7 +222,8 @@ class _PianoLessonScreenState extends State<PianoLessonScreen>
       backgroundColor: const Color(0xFF0A1929),
       body: Builder(
         builder: (context) {
-          final contentHeight = placeholders.length * 160.0 + (5 * 100.0) + 200;
+          final currentMaxLevel = _maxLevel;
+          final contentHeight = placeholders.length * 160.0 + (currentMaxLevel * 100.0) + 200;
           return GestureDetector(
             onTap: () {
               setState(() {
@@ -239,13 +250,13 @@ class _PianoLessonScreenState extends State<PianoLessonScreen>
                     ),
                   ),
                   // Level headers
-                  ...List.generate(6, (levelIndex) {
+                  ...List.generate(currentMaxLevel + 1, (levelIndex) {
                     final level = levelIndex + 1;
                     final labelY = _getLevelLabelY(level, contentHeight);
                     
-                    String headerText = level == 6 ? 'COMING SOON' : 'LEVEL $level';
+                    String headerText = level == currentMaxLevel + 1 ? 'COMING SOON' : 'LEVEL $level';
                     
-                    if (level < 6) {
+                    if (level <= currentMaxLevel) {
                       // Find the module
                       final module = _backendModules.firstWhere(
                         (m) => m.order == level,

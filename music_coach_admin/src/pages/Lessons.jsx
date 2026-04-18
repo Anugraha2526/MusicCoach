@@ -2,14 +2,21 @@ import { useState, useEffect } from 'react';
 import { Edit, Trash2, Plus, ChevronDown, ChevronRight, Music, Mic } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import LessonModal from '../components/LessonModal';
+import ModuleModal from '../components/ModuleModal';
 import api from '../api/axios';
 
 const Lessons = () => {
     const [modules, setModules] = useState([]);
     const [expandedModules, setExpandedModules] = useState({});
-    const [instrumentFilter, setInstrumentFilter] = useState('piano');
-    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [instrumentFilter, setInstrumentFilter] = useState('all');
+    const [instruments, setInstruments] = useState([]);
+    
+    // Modals state
+    const [isLessonModalOpen, setIsLessonModalOpen] = useState(false);
     const [editingLesson, setEditingLesson] = useState(null);
+    const [isModuleModalOpen, setIsModuleModalOpen] = useState(false);
+    const [editingModule, setEditingModule] = useState(null);
+    
     const { getToken } = useAuth();
     const token = getToken();
 
@@ -22,8 +29,22 @@ const Lessons = () => {
         }
     };
 
+    const fetchInstruments = async () => {
+        try {
+            const res = await api.get('accounts/admin/instruments/');
+            setInstruments(res.data);
+            if (res.data.length > 0 && instrumentFilter === 'piano') { // removed to use 'all' by default
+            }
+        } catch (err) {
+            console.error("Failed to fetch instruments", err);
+        }
+    };
+
     useEffect(() => {
-        if (token) fetchModules();
+        if (token) {
+            fetchModules();
+            fetchInstruments();
+        }
     }, [token]);
 
     const toggleModule = (id) => {
@@ -55,14 +76,47 @@ const Lessons = () => {
         }
     };
 
-    const openCreateModal = () => {
-        setEditingLesson(null);
-        setIsModalOpen(true);
+    const handleSaveModule = async (data, id) => {
+        if (id) {
+            await api.put(`accounts/admin/modules/${id}/`, data);
+        } else {
+            await api.post('accounts/admin/modules/', data);
+        }
+        fetchModules();
     };
 
-    const openEditModal = (lesson) => {
+    const handleDeleteModule = async (e, module) => {
+        e.stopPropagation();
+        if (window.confirm(`Delete Level: "${module.title || 'Level ' + module.order}"? This will also permanently remove ALL lessons and sequences inside it.`)) {
+            try {
+                await api.delete(`accounts/admin/modules/${module.id}/`);
+                fetchModules();
+            } catch (err) {
+                alert("Failed to delete module.");
+                console.error(err);
+            }
+        }
+    };
+
+    const openCreateLessonModal = () => {
+        setEditingLesson(null);
+        setIsLessonModalOpen(true);
+    };
+
+    const openEditLessonModal = (lesson) => {
         setEditingLesson(lesson);
-        setIsModalOpen(true);
+        setIsLessonModalOpen(true);
+    };
+
+    const openCreateModuleModal = () => {
+        setEditingModule(null);
+        setIsModuleModalOpen(true);
+    };
+
+    const openEditModuleModal = (e, module) => {
+        e.stopPropagation();
+        setEditingModule(module);
+        setIsModuleModalOpen(true);
     };
 
     const getInstrumentIcon = (name) => {
@@ -113,10 +167,16 @@ const Lessons = () => {
                             <option value="vocal">Vocal</option>
                         </select>
                     </div>
-                    <button className="btn-primary" onClick={openCreateModal}
-                        style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                        <Plus size={16} /> New Lesson
-                    </button>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                        <button className="btn-outline" onClick={openCreateModuleModal}
+                            style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                            <Plus size={16} /> New Level
+                        </button>
+                        <button className="btn-primary" onClick={openCreateLessonModal}
+                            style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                            <Plus size={16} /> New Lesson
+                        </button>
+                    </div>
                 </div>
 
                 <div style={{ padding: '20px' }}>
@@ -148,7 +208,7 @@ const Lessons = () => {
                                 {expandedModules[mod.id] ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
                                 {getInstrumentIcon(mod.instrument_name)}
                                 <div style={{ flex: 1 }}>
-                                    <span style={{ fontWeight: 600, fontSize: '1rem' }}>{mod.title}</span>
+                                    <span style={{ fontWeight: 600, fontSize: '1rem' }}>Level {mod.order}: {mod.title || 'Untitled'}</span>
                                     <span style={{ color: 'var(--text-muted)', marginLeft: '12px', fontSize: '0.85rem' }}>
                                         {mod.lesson_count} lesson{mod.lesson_count !== 1 ? 's' : ''}
                                     </span>
@@ -161,6 +221,14 @@ const Lessons = () => {
                                 }}>
                                     {mod.instrument_name || 'Unknown'}
                                 </span>
+                                <div style={{ display: 'flex', gap: '8px', marginLeft: '15px' }}>
+                                    <button className="action-btn" onClick={(e) => openEditModuleModal(e, mod)} title="Edit Level">
+                                        <Edit size={16} />
+                                    </button>
+                                    <button className="action-btn delete" onClick={(e) => handleDeleteModule(e, mod)} title="Delete Level">
+                                        <Trash2 size={16} />
+                                    </button>
+                                </div>
                             </div>
 
                             {/* Lessons Table */}
@@ -204,7 +272,7 @@ const Lessons = () => {
                                                 </td>
                                                 <td>
                                                     <div style={{ display: 'flex', gap: '10px' }}>
-                                                        <button className="action-btn" onClick={() => openEditModal(lesson)}>
+                                                        <button className="action-btn" onClick={() => openEditLessonModal(lesson)}>
                                                             <Edit size={16} />
                                                         </button>
                                                         <button className="action-btn delete" onClick={() => handleDeleteLesson(lesson)}>
@@ -230,10 +298,19 @@ const Lessons = () => {
             </div>
 
             <LessonModal
-                isOpen={isModalOpen}
-                onClose={() => setIsModalOpen(false)}
+                isOpen={isLessonModalOpen}
+                onClose={() => setIsLessonModalOpen(false)}
                 onSave={handleSaveLesson}
                 lesson={editingLesson}
+                modules={modules}
+            />
+
+            <ModuleModal
+                isOpen={isModuleModalOpen}
+                onClose={() => setIsModuleModalOpen(false)}
+                onSave={handleSaveModule}
+                module={editingModule}
+                instruments={instruments}
                 modules={modules}
             />
         </div>
