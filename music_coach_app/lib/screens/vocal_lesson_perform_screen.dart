@@ -961,7 +961,7 @@ class _VocalLessonPerformScreenState extends State<VocalLessonPerformScreen> wit
 // =============================================
 // SEPARATE END SCREEN
 // =============================================
-class _VocalLessonEndScreen extends StatelessWidget {
+class _VocalLessonEndScreen extends StatefulWidget {
   final String lessonTitle;
   final int score;
   final int maxScore;
@@ -973,12 +973,55 @@ class _VocalLessonEndScreen extends StatelessWidget {
   });
 
   @override
+  State<_VocalLessonEndScreen> createState() => _VocalLessonEndScreenState();
+}
+
+class _VocalLessonEndScreenState extends State<_VocalLessonEndScreen> {
+  String? _aiFeedback;
+  bool _isLoadingFeedback = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchFeedback();
+  }
+
+  Future<void> _fetchFeedback() async {
+    final double percentage = widget.maxScore > 0 ? (widget.score / widget.maxScore) : 0;
+    int starsEarned = 1;
+    if (percentage >= 0.8) starsEarned = 3;
+    else if (percentage >= 0.5) starsEarned = 2;
+
+    try {
+      final msg = await ProgressService.fetchDynamicFeedback(
+        lessonName: widget.lessonTitle,
+        accuracy: (percentage * 100).round(),
+        stars: starsEarned,
+        instrument: 'vocal',
+      );
+      if (mounted) {
+        setState(() {
+          _aiFeedback = msg;
+          _isLoadingFeedback = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _aiFeedback = "Great job finishing the lesson! Keep practicing your vocal skills.";
+          _isLoadingFeedback = false;
+        });
+      }
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     // Restore portrait
     SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     
-    final double percentage = maxScore > 0 ? (score / maxScore * 100) : 0;
+    final double percentage = widget.maxScore > 0 ? (widget.score / widget.maxScore * 100) : 0;
     String rating;
     Color ratingColor;
     IconData ratingIcon;
@@ -1001,93 +1044,121 @@ class _VocalLessonEndScreen extends StatelessWidget {
       backgroundColor: const Color(0xFF0A1929),
       body: SafeArea(
         child: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              // Trophy / Badge
-              Container(
-                width: 120, height: 120,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: LinearGradient(
-                    colors: [ratingColor.withOpacity(0.8), ratingColor.withOpacity(0.3)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                // Trophy / Badge
+                Container(
+                  width: 120, height: 120,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: LinearGradient(
+                      colors: [ratingColor.withOpacity(0.8), ratingColor.withOpacity(0.3)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    boxShadow: [
+                      BoxShadow(color: ratingColor.withOpacity(0.4), blurRadius: 30, spreadRadius: 5),
+                    ],
                   ),
-                  boxShadow: [
-                    BoxShadow(color: ratingColor.withOpacity(0.4), blurRadius: 30, spreadRadius: 5),
-                  ],
+                  child: Icon(ratingIcon, color: Colors.white, size: 60),
                 ),
-                child: Icon(ratingIcon, color: Colors.white, size: 60),
-              ),
-              
-              const SizedBox(height: 30),
-              
-              Text(
-                rating,
-                style: TextStyle(
-                  color: ratingColor,
-                  fontSize: 32,
-                  fontWeight: FontWeight.bold,
+                
+                const SizedBox(height: 30),
+                
+                Text(
+                  rating,
+                  style: TextStyle(
+                    color: ratingColor,
+                    fontSize: 32,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
-              ),
-              
-              const SizedBox(height: 12),
-              
-              Text(
-                lessonTitle,
-                style: TextStyle(
-                  color: Colors.white.withOpacity(0.8),
-                  fontSize: 18,
+                
+                const SizedBox(height: 12),
+                
+                Text(
+                  widget.lessonTitle,
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.8),
+                    fontSize: 18,
+                  ),
                 ),
-              ),
-              
-              const SizedBox(height: 30),
-              
-              // Score Display
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 20),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.05),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: Colors.white.withOpacity(0.1)),
+                
+                const SizedBox(height: 30),
+                
+                // Score Display
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 20),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.05),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: Colors.white.withOpacity(0.1)),
+                  ),
+                  child: Column(
+                    children: [
+                      Text(
+                        '${widget.score} / ${widget.maxScore}',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 48,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Notes Hit',
+                        style: TextStyle(
+                          color: Colors.white.withOpacity(0.6),
+                          fontSize: 16,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-                child: Column(
-                  children: [
-                    Text(
-                      '$score / $maxScore',
+                
+                const SizedBox(height: 30),
+
+                // AI Feedback Container
+                if (_isLoadingFeedback)
+                  const Center(child: CircularProgressIndicator(color: Color(0xFFE93B81)))
+                else if (_aiFeedback != null)
+                  Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 32),
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFE93B81).withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: const Color(0xFFE93B81).withOpacity(0.3)),
+                    ),
+                    child: Text(
+                      _aiFeedback!,
                       style: const TextStyle(
                         color: Colors.white,
-                        fontSize: 48,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Notes Hit',
-                      style: TextStyle(
-                        color: Colors.white.withOpacity(0.6),
                         fontSize: 16,
+                        fontStyle: FontStyle.italic,
+                        height: 1.4,
                       ),
+                      textAlign: TextAlign.center,
                     ),
-                  ],
+                  ),
+                
+                const SizedBox(height: 40),
+                
+                // Done button
+                ElevatedButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFE93B81),
+                    foregroundColor: Colors.white,
+                    minimumSize: const Size(200, 50),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
+                  ),
+                  child: const Text('Done', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                 ),
-              ),
-              
-              const SizedBox(height: 50),
-              
-              // Done button
-              ElevatedButton(
-                onPressed: () => Navigator.of(context).pop(),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFE93B81),
-                  foregroundColor: Colors.white,
-                  minimumSize: const Size(200, 50),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
-                ),
-                child: const Text('Done', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
