@@ -91,3 +91,6 @@ music_coach_admin/yarn-error.log*
 
 
 *.md
+# Security Variables
+.env
+*.env

@@ -190,6 +190,11 @@ CACHES = {
     }
 }
 
-# HUGGING FACE INFERENCE API KEY
-HUGGINGFACE_API_KEY = "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"
+import os
+from dotenv import load_dotenv
+load_dotenv(BASE_DIR / '.env')
+
+# HUGGING FACE INFERENCE API KEY (Securely loaded from .env file)
+HUGGINGFACE_API_KEY = os.environ.get("HUGGINGFACE_API_KEY", "")
+
 
